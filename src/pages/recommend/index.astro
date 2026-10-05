@@ -1,0 +1,367 @@
+---
+// Recommendations (plan §5.3), for members who sign in: search a film for the group (TMDB, as in the Film
+// finder), or send the hosts a screening they spotted. Only the hosts see what members recommend (/hosts); a
+// member sees their own, never anyone else's nor how many a film has, so no one is swayed (plan §8).
+// Plain forms, no JavaScript.
+import { database, tmdb } from '../../cloudflare';
+import TmdbCredit from '../../components/TmdbCredit.astro';
+import Base from '../../layouts/Base.astro';
+import { canSendTip, NOTE_LENGTH, ownRecommendations, parseTip, sendTip, URL_LENGTH } from '../../lib/recommendations';
+import { releaseYear, type TmdbSearchResult, TmdbError } from '../../lib/tmdb/client';
+
+export const prerender = false;
+
+const member = await Astro.locals.member();
+if (!member) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`);
+
+const now = new Date();
+const db = database();
+
+// A screening tip: saved, then back here (Post/Redirect/Get), so a reload doesn't send it twice.
+let tipErrors: Partial<Record<string, string>> = {};
+let tipValues = { url: '', note: '' };
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const tip = parseTip(form);
+  if (tip.ok && (await canSendTip(db, member.id, now))) {
+    await sendTip(db, member.id, tip.value, now);
+    return Astro.redirect('/recommend?tip=sent#tip', 303);
+  }
+  tipErrors = tip.ok ? { form: 'That’s a lot of tips for one day. Thank you! Please send the rest tomorrow.' } : tip.errors;
+  tipValues = { url: String(form.get('url') ?? '').slice(0, URL_LENGTH * 2), note: String(form.get('note') ?? '').slice(0, NOTE_LENGTH * 2) };
+  Astro.response.status = 422;
+}
+const tipSent = Astro.url.searchParams.get('tip') === 'sent';
+
+const MAX_RESULTS = 10;
+const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
+let results: TmdbSearchResult[] = [];
+let unavailable = false;
+if (query) {
+  const client = tmdb();
+  try {
+    results = client ? (await client.searchMovies(query)).slice(0, MAX_RESULTS) : [];
+    unavailable = !client;
+  } catch (error) {
+    if (!(error instanceof TmdbError)) throw error;
+    unavailable = true;
+  }
+}
+
+const own = await ownRecommendations(db, member.id);
+const mine = new Set(own.map((film) => film.tmdbId));
+const poster = (path: string | null | undefined) => (path ? `https://image.tmdb.org/t/p/w92${path}` : null);
+---
+
+<Base
+  title={query ? `${query} · Recommend · AFiG: Amsterdam Film Group` : 'Recommend · AFiG: Amsterdam Film Group'}
+  description="Recommend a film for the group, or tell the hosts about a screening you spotted."
+>
+  <h1>Recommend</h1>
+  <p class="lead">
+    Tell the hosts what the group should see. Only the hosts read what you send. They choose the screenings: a film becomes
+    an event when a cinema plays it with subtitles the group can follow.
+  </p>
+
+  <section class="card" aria-labelledby="film">
+    <h2 id="film">A film for the group</h2>
+    <p class="hint">Find it, then add a line on why if you like.</p>
+    <form method="get" action="/recommend#film" role="search" class="search">
+      <label for="q" class="visually-hidden">Film title</label>
+      <input id="q" name="q" type="search" value={query} placeholder="A title, in any language" autocomplete="off" required />
+      <button type="submit">Search</button>
+    </form>
+    {
+      query &&
+        (unavailable ? (
+          <p class="note">The search isn't available right now. Please try again later.</p>
+        ) : results.length === 0 ? (
+          <p class="note">No film found for "{query}".</p>
+        ) : (
+          <ol class="films">
+            {results.map((film) => (
+              <li>
+                <a href={`/recommend/${film.id}`}>
+                  {poster(film.poster_path) ? (
+                    <img src={poster(film.poster_path)} alt="" width="46" height="69" loading="lazy" />
+                  ) : (
+                    <span class="no-poster" />
+                  )}
+                  <span class="name">
+                    {film.title}
+                    {releaseYear(film.release_date) && <span class="year"> ({releaseYear(film.release_date)})</span>}
+                    {film.original_title !== film.title && <span class="sub">{film.original_title}</span>}
+                  </span>
+                  {mine.has(film.id) && <span class="pill">Recommended</span>}
+                </a>
+              </li>
+            ))}
+          </ol>
+        ))
+    }
+  </section>
+
+  <section class="card" id="tip" aria-labelledby="tip-heading">
+    <h2 id="tip-heading">A screening you spotted</h2>
+    {
+      tipSent ? (
+        <p class="thanks" role="status">
+          Thanks! The hosts will have a look. <a href="/recommend#tip">Send another</a>
+        </p>
+      ) : (
+        <>
+          <p class="hint">
+            A film at a cinema, a festival, a one-off night, a place that shows films and that we don't know yet: paste the link.
+            Only the hosts see it.
+          </p>
+          {tipErrors.form && (
+            <p class="error" role="alert">
+              {tipErrors.form}
+            </p>
+          )}
+          <form method="post" action="/recommend#tip" class="tip" novalidate>
+            <label for="url">Link</label>
+            <input
+              id="url"
+              name="url"
+              type="url"
+              inputmode="url"
+              value={tipValues.url}
+              placeholder="https://"
+              maxlength={URL_LENGTH}
+              required
+              aria-invalid={tipErrors.url ? 'true' : undefined}
+              aria-describedby={tipErrors.url ? 'url-error' : undefined}
+            />
+            {tipErrors.url && (
+              <p class="error" id="url-error">
+                {tipErrors.url}
+              </p>
+            )}
+            <label for="tip-note">
+              What is it? <span class="optional">(optional)</span>
+            </label>
+            <textarea
+              id="tip-note"
+              name="note"
+              rows="3"
+              maxlength={NOTE_LENGTH}
+              aria-invalid={tipErrors.note ? 'true' : undefined}
+              aria-describedby={tipErrors.note ? 'tip-note-error' : undefined}>{tipValues.note}</textarea>
+            {tipErrors.note && (
+              <p class="error" id="tip-note-error">
+                {tipErrors.note}
+              </p>
+            )}
+            <button type="submit">Send to the hosts</button>
+          </form>
+        </>
+      )
+    }
+  </section>
+
+  {
+    own.length > 0 && (
+      <section id="yours" aria-labelledby="yours-heading">
+        <h2 id="yours-heading">Your recommendations</h2>
+        <p class="hint">Only you and the hosts see these. Open one to change your line or withdraw it.</p>
+        <ol class="films">
+          {own.map((film) => (
+            <li>
+              <a href={`/recommend/${film.tmdbId}`}>
+                {poster(film.posterPath) ? (
+                  <img src={poster(film.posterPath)} alt="" width="46" height="69" loading="lazy" />
+                ) : (
+                  <span class="no-poster" />
+                )}
+                <span class="name">
+                  {film.title}
+                  {film.year && <span class="year"> ({film.year})</span>}
+                  {film.note && <span class="sub why">{film.note}</span>}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+
+  <TmdbCredit />
+</Base>
+
+<style>
+  .lead,
+  .hint,
+  .note {
+    color: var(--muted);
+  }
+
+  h2 {
+    margin: 0 0 4px;
+    font-family: var(--font-title);
+    font-size: 22px;
+    font-weight: 400;
+  }
+
+  section {
+    margin-top: 24px;
+  }
+
+  .card {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+  }
+
+  .hint {
+    margin: 0 0 12px;
+  }
+
+  .search {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tip {
+    display: grid;
+    gap: 6px;
+  }
+
+  label {
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  .optional {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+  }
+
+  .search input {
+    flex: 1;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  [aria-invalid='true'] {
+    border-color: var(--urgent);
+  }
+
+  button {
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .tip button {
+    justify-self: start;
+    margin-top: 10px;
+  }
+
+  .error {
+    margin: 0;
+    color: var(--urgent);
+  }
+
+  .thanks {
+    margin: 8px 0 0;
+  }
+
+  .thanks a,
+  .note a {
+    color: var(--accent);
+  }
+
+  .films {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+
+  .films a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .films li:last-child a {
+    border-bottom: 0;
+  }
+
+  .films img,
+  .no-poster {
+    flex: none;
+    width: 46px;
+    height: 69px;
+    border-radius: 4px;
+    background: var(--still);
+    object-fit: cover;
+  }
+
+  .name {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  .year {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .sub {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .pill {
+    flex: none;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--pill);
+    color: var(--pill-text);
+  }
+
+  .card .pill {
+    background: var(--bg);
+  }
+
+  /* The member's own line, kept to two lines in the list. */
+  .why {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+</style>

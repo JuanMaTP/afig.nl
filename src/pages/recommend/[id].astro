@@ -1,0 +1,287 @@
+---
+// One film to recommend to the group (plan §5.3), by its TMDB id as in the Film finder. A member
+// recommends it with an optional line on why, changes that line, or withdraws. The film is stored as every
+// film is (plan §8, Film identity), so its TMDB data is refreshed with the rest. The page never says whether
+// anyone else recommended it: only the hosts see that (plan §8).
+import { database, tmdb } from '../../cloudflare';
+import TmdbCredit from '../../components/TmdbCredit.astro';
+import Base from '../../layouts/Base.astro';
+import { saveFilm } from '../../lib/films/store';
+import { formatDay } from '../../lib/format';
+import { canRecommend, NOTE_LENGTH, ownRecommendation, parseNote, recommend, withdraw } from '../../lib/recommendations';
+import { type TmdbMovie, TmdbError } from '../../lib/tmdb/client';
+
+export const prerender = false;
+
+const member = await Astro.locals.member();
+if (!member) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`);
+
+const id = /^\d{1,9}$/.test(Astro.params.id ?? '') ? Number(Astro.params.id) : null;
+if (id === null) return new Response(null, { status: 404 });
+
+const now = new Date();
+const db = database();
+const here = `/recommend/${id}`;
+
+let film: TmdbMovie | null = null;
+let unavailable = false;
+try {
+  const client = tmdb();
+  film = client ? await client.movie(id) : null;
+  unavailable = !client;
+} catch (error) {
+  if (!(error instanceof TmdbError)) throw error;
+  unavailable = true;
+}
+if (!film && !unavailable) return new Response(null, { status: 404 });
+
+// Recommend, change the line, or withdraw; then back here (Post/Redirect/Get), so a reload sends nothing twice.
+let error: string | null = null;
+let typed: string | null = null;
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (form.get('intent') === 'withdraw') {
+    await withdraw(db, member.id, id);
+    return Astro.redirect(`${here}?done=withdrawn`, 303);
+  }
+  const note = parseNote(form);
+  const already = await ownRecommendation(db, member.id, id);
+  if (!film) error = 'The film’s details aren’t available right now, so it can’t be recommended. Please try again later.';
+  else if (!note.ok) error = note.errors.note ?? 'Please check the line on why.';
+  else if (!already && !(await canRecommend(db, member.id, now))) error = 'That’s a lot of films for one day. Thank you! Please add the rest tomorrow.';
+  else {
+    const saved = await saveFilm(db, film, now);
+    if ('id' in saved) {
+      await recommend(db, member.id, saved.id, note.value.note, now);
+      return Astro.redirect(`${here}?done=${already ? 'saved' : 'added'}`, 303);
+    }
+    // TMDB gave this film an IMDb id another stored film already has: never merged by guess (src/lib/films/store.ts).
+    error = 'Something is wrong with this film’s details, so it can’t be recommended right now.';
+  }
+  typed = String(form.get('note') ?? '').slice(0, NOTE_LENGTH * 2);
+  Astro.response.status = 422;
+}
+
+const own = await ownRecommendation(db, member.id, id);
+const done = Astro.url.searchParams.get('done');
+const name = film ? `${film.title}${film.year ? ` (${film.year})` : ''}` : 'Film';
+---
+
+<Base title={`Recommend ${name} · AFiG: Amsterdam Film Group`} description={`Recommend ${name} to AFiG: Amsterdam Film Group.`}>
+  <p class="back"><a href="/recommend">← Recommend</a></p>
+  {
+    film ? (
+      <div class="film">
+        {film.posterPath && <img src={`https://image.tmdb.org/t/p/w185${film.posterPath}`} alt="" width="92" height="138" />}
+        <div>
+          <h1>
+            {film.title}
+            {film.year && <span class="year"> ({film.year})</span>}
+          </h1>
+          {film.originalTitle !== film.title && <p class="meta">{film.originalTitle}</p>}
+          <p class="meta">
+            {[film.directors.length > 0 && `Directed by ${film.directors.join(', ')}`, film.runtime && `${film.runtime} min`].filter(Boolean).join(' · ')}
+          </p>
+          <p class="meta">
+            <a href={`/films/${id}`}>Where it plays in Amsterdam</a>
+          </p>
+        </div>
+      </div>
+    ) : (
+      <>
+        <h1>Film</h1>
+        <p class="note">The film's details aren't available right now.</p>
+      </>
+    )
+  }
+
+  {
+    done === 'added' || done === 'saved' ? (
+      <p class="thanks" role="status">
+        {done === 'added' ? 'Thanks! The hosts will see it.' : 'Saved.'} <a href="/recommend">Back to Recommend</a>
+      </p>
+    ) : done === 'withdrawn' ? (
+      <p class="thanks" role="status">
+        Your recommendation is withdrawn.
+      </p>
+    ) : null
+  }
+
+  <section class="card" aria-labelledby="yours">
+    <h2 id="yours">{own ? 'Your recommendation' : 'Recommend it to the group'}</h2>
+    <p class="hint">
+      {
+        own
+          ? `You recommended it on ${formatDay(own.createdAt)}. Only you and the hosts see it.`
+          : 'Only the hosts read it, with your name, so they can reply.'
+      }
+    </p>
+    {
+      error && (
+        <p class="error" role="alert">
+          {error}
+        </p>
+      )
+    }
+    {
+      film && (
+        <form method="post" action={here} class="note-form">
+          <label for="note">
+            Why should the group see it? <span class="optional">(optional)</span>
+          </label>
+          <textarea id="note" name="note" rows="3" maxlength={NOTE_LENGTH} aria-invalid={error ? 'true' : undefined}>{typed ?? own?.note ?? ''}</textarea>
+          <button type="submit">{own ? 'Save' : 'Recommend'}</button>
+        </form>
+      )
+    }
+    {
+      own && (
+        <form method="post" action={here} class="withdraw">
+          <input type="hidden" name="intent" value="withdraw" />
+          <button type="submit">Withdraw my recommendation</button>
+        </form>
+      )
+    }
+  </section>
+
+  <TmdbCredit />
+</Base>
+
+<style>
+  .back {
+    margin: 16px 0 0;
+  }
+
+  .back a,
+  .meta a,
+  .thanks a {
+    color: var(--accent);
+  }
+
+  .film {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .film img {
+    flex: none;
+    width: 92px;
+    height: 138px;
+    margin-top: 16px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--still);
+  }
+
+  h1 {
+    margin-bottom: 8px;
+  }
+
+  .year,
+  .meta,
+  .note,
+  .hint {
+    color: var(--muted);
+  }
+
+  .year {
+    font-weight: 400;
+  }
+
+  .meta {
+    margin: 4px 0;
+  }
+
+  .thanks {
+    margin: 20px 0 0;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--going);
+    border-radius: 8px;
+    background: var(--card);
+  }
+
+  .card {
+    margin-top: 24px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+  }
+
+  h2 {
+    margin: 0 0 4px;
+    font-family: var(--font-title);
+    font-size: 22px;
+    font-weight: 400;
+  }
+
+  .hint {
+    margin: 0 0 12px;
+  }
+
+  .note-form {
+    display: grid;
+    gap: 6px;
+  }
+
+  label {
+    font-weight: 600;
+  }
+
+  .optional {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+    resize: vertical;
+  }
+
+  [aria-invalid='true'] {
+    border-color: var(--urgent);
+  }
+
+  .note-form button {
+    justify-self: start;
+    min-height: 44px;
+    margin-top: 10px;
+    padding: 0 20px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .withdraw {
+    margin-top: 8px;
+  }
+
+  .withdraw button {
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .error {
+    color: var(--urgent);
+  }
+</style>

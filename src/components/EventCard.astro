@@ -1,0 +1,276 @@
+---
+// One event on the agenda, after the card in docs/brand/afig-style-tile.html. The day is in the
+// heading above it. The meetup time and the film start are two separate lines: people have
+// arrived an hour early when they were conflated (CLAUDE.md). Language and subtitles are prominent.
+import type { AgendaEvent } from '../lib/agenda';
+import { googleCalendarLink } from '../lib/calendar';
+import { coverImageSources, formatAttendance, formatTime } from '../lib/format';
+
+interface Props {
+  event: AgendaEvent;
+  /** The first card on the page: its image loads at once instead of lazily. */
+  priority?: boolean;
+}
+
+const { event, priority = false } = Astro.props;
+const cover = event.coverImageUrl ? coverImageSources(event.coverImageUrl) : null;
+const attendance = event.cancelled ? null : formatAttendance(event.going, event.rsvpLimit);
+const full = attendance?.tone === 'full';
+// The city only outside Amsterdam, and only when the venue's name doesn't already say it.
+const city = event.venue?.city;
+const place = event.venue && (city && city !== 'Amsterdam' && !event.venue.name.includes(city) ? `${event.venue.name}, ${city}` : event.venue.name);
+---
+
+<article class:list={['event', { cancelled: event.cancelled }]}>
+  <div class="frame">
+    {
+      cover ? (
+        <img
+          class="still"
+          src={cover.src}
+          srcset={cover.srcset}
+          sizes="(max-width: 760px) 100vw, 728px"
+          alt=""
+          loading={priority ? 'eager' : 'lazy'}
+          fetchpriority={priority ? 'high' : undefined}
+          decoding="async"
+        />
+      ) : (
+        <div class="still" />
+      )
+    }
+    {event.format && <span class="tag">{event.format}</span>}
+  </div>
+  <div class="body">
+    <h3 class="title">{event.title}</h3>
+    {event.cancelled && <p class="status">Cancelled</p>}
+    {event.language && <p class="language">{event.language}</p>}
+    <p class="times">
+      <span>Meet <time datetime={event.startsAt}>{formatTime(event.startsAt)}</time></span>
+      {
+        event.filmStartsAt && (
+          <span>
+            Film starts <time datetime={event.filmStartsAt}>{formatTime(event.filmStartsAt)}</time>
+          </span>
+        )
+      }
+    </p>
+    {
+      place && (
+        <p class="venue">
+          {place}
+          {event.auditorium && ` · ${event.auditorium}`}
+        </p>
+      )
+    }
+    {
+      !event.cancelled && (
+        <details class="add">
+          <summary>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            Add to calendar<span class="visually-hidden">: {event.title}</span>
+          </summary>
+          <ul>
+            <li>
+              <a href={`/events/${event.id}.ics`}>Apple Calendar</a> <span class="hint">iPhone, Mac, Outlook</span>
+            </li>
+            <li>
+              <a href={googleCalendarLink(event)} target="_blank" rel="noopener">
+                Google Calendar<span class="visually-hidden"> (opens in a new tab)</span>
+              </a>
+            </li>
+          </ul>
+        </details>
+      )
+    }
+    <div class="foot">
+      {attendance && <span class:list={['going', attendance.tone]}>{attendance.text}</span>}
+      <div class="actions">
+        {
+          event.ticketsUrl && !event.cancelled && (
+            <a class="button secondary" href={event.ticketsUrl} target="_blank" rel="noopener">
+              Tickets<span class="visually-hidden"> for {event.title} (opens in a new tab)</span>
+            </a>
+          )
+        }
+        <a class:list={['button', { secondary: event.cancelled || full }]} href={event.url} target="_blank" rel="noopener">
+          {event.cancelled || full ? 'See on Meetup' : 'RSVP on Meetup'}
+          <span class="visually-hidden">: {event.title} (opens in a new tab)</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</article>
+
+<style>
+  .event {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .frame {
+    position: relative;
+  }
+
+  .still {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: var(--still);
+  }
+
+  .cancelled .still {
+    filter: grayscale(1);
+    opacity: 0.55;
+  }
+
+  .tag {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--tag);
+    color: var(--tag-text);
+  }
+
+  .body {
+    padding: 16px 18px 18px;
+  }
+
+  .title {
+    font-family: var(--font-title);
+    font-weight: 400;
+    font-size: 23px;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  .status,
+  .language {
+    display: inline-block;
+    margin: 10px 8px 0 0;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--pill);
+    color: var(--pill-text);
+  }
+
+  .cancelled .title,
+  .cancelled .times {
+    text-decoration: line-through;
+  }
+
+  .times {
+    display: grid;
+    gap: 2px;
+    font-size: 15px;
+    margin: 12px 0 0;
+  }
+
+  .times time {
+    font-weight: 600;
+  }
+
+  .venue {
+    font-size: 14px;
+    margin: 6px 0 0;
+    color: var(--muted);
+  }
+
+  .add {
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .add summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .add ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    margin: 0;
+    padding: 0 0 4px 22px;
+    list-style: none;
+  }
+
+  .add li {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-height: 32px;
+  }
+
+  .add a {
+    font-weight: 500;
+  }
+
+  .add .hint {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px 12px;
+    margin-top: 14px;
+  }
+
+  .going {
+    font-size: 14px;
+    color: var(--going);
+  }
+
+  .going.few,
+  .going.full {
+    color: var(--urgent);
+    font-weight: 600;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .button.secondary {
+    background: transparent;
+    color: var(--accent);
+  }
+</style>

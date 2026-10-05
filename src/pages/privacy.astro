@@ -1,0 +1,149 @@
+---
+// The privacy notice (plan §6; GDPR Art. 13): who is responsible, what the site keeps and why, who else handles
+// it, how long it stays, and members' rights. Linked from the footer, /sign-in, About, and Google's consent screen.
+// It describes what the code does: change it in the same commit as anything that changes what is kept.
+// TODO(after-launch): the cron deletes accounts unused for 24 months, as promised below (docs/engineering.md).
+import Base from '../layouts/Base.astro';
+
+export const prerender = false;
+
+const CONTROLLER = 'Juan Mauricio Torres Perez';
+const EMAIL = 'juanma71298@gmail.com';
+const MEETUP = 'https://www.meetup.com/amsterdam-film-group/';
+---
+
+<Base
+  title="Privacy · AFiG: Amsterdam Film Group"
+  description="What the AFiG: Amsterdam Film Group website keeps about you, why, and how to have it deleted."
+>
+  <h1>Privacy</h1>
+  <p class="lead">
+    Reading this site needs no account and sets no cookies. If you sign in, we keep as little as we can, only to run the
+    site, and never sell or share it for advertising.
+  </p>
+  <p class="updated">Last updated 4 October 2026.</p>
+
+  <section aria-labelledby="who">
+    <h2 id="who">Who is responsible</h2>
+    <p>
+      The site is run by volunteers of AFiG: Amsterdam Film Group, a film meetup in Amsterdam. Responsible for your data
+      (the controller, in the GDPR's words) is its organizer, {CONTROLLER}, in Amsterdam. Write to
+      <a href={`mailto:${EMAIL}`}>{EMAIL}</a> about anything on this page.
+    </p>
+  </section>
+
+  <section aria-labelledby="visit">
+    <h2 id="visit">When you read the site</h2>
+    <ul>
+      <li>
+        <strong>Cloudflare</strong> hosts the site. Like any web server, it receives your IP address and browser details to
+        send you the pages and to keep the site safe, and keeps technical logs of requests for up to 7 days to find errors.
+      </li>
+      <li>
+        <strong>Images from other sites:</strong> event pictures load from Meetup's servers and film posters from TMDB's, so
+        your browser connects to them, and they see your IP address, as with any image on the web.
+      </li>
+      <li>
+        <strong>Your browser</strong> remembers the theme you pick (Light or Dark), and that you saw the logo's animation in
+        this visit. Both stay in your browser; we never receive them.
+      </li>
+      <li>No analytics, no tracking, no advertising cookies. The site never shows who goes to an event, only how many.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="account">
+    <h2 id="account">When you sign in</h2>
+    <p>
+      You sign in with Google to use the Film finder and Recommend. Google tells us your name, your email address, whether
+      Google verified it, and an id for your Google account. We keep those, and when you signed in, only to know it's you.
+      We don't keep your Google picture, your password (we never see it) or any access to your Google account. Google knows
+      that you signed in to this site; see <a href="https://policies.google.com/privacy">Google's privacy policy</a>.
+    </p>
+    <p>
+      Two cookies keep you signed in: one for up to 90 days, renewed while you use the site, and one that remembers your
+      session for 5 minutes so the site stays fast. A third lives a few minutes while you sign in. All are needed for
+      signing in, so the site doesn't ask for consent. We don't keep your IP address with your account.
+    </p>
+  </section>
+
+  <section aria-labelledby="recommend">
+    <h2 id="recommend">When you recommend</h2>
+    <p>
+      What you send in <a href="/recommend">Recommend</a> (a film, a screening link, a note) is kept with your account. The
+      group's hosts, a few volunteers, see it with your name and email, so they can reply. Other members never see it.
+    </p>
+  </section>
+
+  <section aria-labelledby="why">
+    <h2 id="why">Why we may keep it</h2>
+    <p>
+      Signing in is your request to use the parts of the site for members, and we keep only what that needs (GDPR Art.
+      6(1)(b)). The technical logs serve our legitimate interest in a site that works and stays safe (Art. 6(1)(f)).
+    </p>
+  </section>
+
+  <section aria-labelledby="where">
+    <h2 id="where">Where it is, and for how long</h2>
+    <ul>
+      <li>
+        Your account and what you send are stored in a Cloudflare database in the EU. Cloudflare handles them only for us,
+        under its data processing agreement. Cloudflare and Google are US companies; where data reaches the US, it is
+        covered by the EU-US Data Privacy Framework and the EU's standard contractual clauses.
+      </li>
+      <li>
+        Your account stays until you ask us to delete it, or until it hasn't been used for 24 months; then it is deleted
+        with everything you sent. You can withdraw a recommendation yourself at any time.
+      </li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="rights">
+    <h2 id="rights">Your rights</h2>
+    <p>
+      You can ask to see what we keep about you, to correct it, to have it deleted, to receive it in a file, or to object
+      to how we use it. Write to <a href={`mailto:${EMAIL}`}>{EMAIL}</a>, or message the organizers on
+      <a href={MEETUP}>Meetup</a>; we answer within a month. If you think we handle your data wrongly, you can also
+      complain to the Dutch data protection authority, the
+      <a href="https://autoriteitpersoonsgegevens.nl/">Autoriteit Persoonsgegevens</a>.
+    </p>
+    <p>Signing in is for people aged 16 or over.</p>
+  </section>
+</Base>
+
+<style>
+  .lead {
+    font-size: 18px;
+  }
+
+  .updated {
+    color: var(--muted);
+  }
+
+  section {
+    margin-top: 32px;
+  }
+
+  h2 {
+    margin: 0 0 8px;
+    font-family: var(--font-title);
+    font-size: 22px;
+    font-weight: 400;
+  }
+
+  p,
+  li {
+    line-height: 1.55;
+  }
+
+  a {
+    color: var(--accent);
+  }
+
+  ul {
+    padding-left: 20px;
+  }
+
+  ul li {
+    padding: 2px 0;
+  }
+</style>

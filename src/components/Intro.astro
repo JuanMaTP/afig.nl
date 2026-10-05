@@ -1,0 +1,218 @@
+---
+// The logo's intro: the reel starts turning, the strip unrolls, the name comes in (docs/brand/design-direction.md).
+// Once per browser session, on the first page opened; a tap, click or key skips it. Base.astro's head script
+// decides before the page paints (data-intro on <html>), so without JavaScript, or when the visitor asks for
+// reduced motion, it never shows. The page renders underneath meanwhile.
+import IntroMark from './IntroMark.astro';
+---
+
+<div class="afig-intro" aria-hidden="true">
+  <IntroMark />
+</div>
+
+<script>
+  // Skip on any tap, click or key, and clear the flag once the intro has faded, so nothing is left on top.
+  const root = document.documentElement;
+  const intro = document.querySelector<HTMLElement>('.afig-intro');
+
+  function end() {
+    delete root.dataset.intro;
+  }
+
+  if (root.dataset.intro === 'play' && intro) {
+    intro.addEventListener('animationend', (event) => {
+      if (event.target === intro) end();
+    });
+    for (const type of ['pointerdown', 'keydown']) {
+      window.addEventListener(type, end, { once: true, capture: true });
+    }
+  }
+</script>
+
+<style is:global>
+  .afig-intro {
+    display: none;
+  }
+
+  :root[data-intro='play'] .afig-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--bg);
+    /* Fades out after 3.1 s and stays hidden, even if the script never runs. */
+    animation: afig-intro-out 0.4s ease-in 3.1s both;
+  }
+
+  .afig-intro-mark {
+    width: min(84vw, 440px);
+    height: auto;
+    overflow: visible;
+  }
+
+  .afig-intro .strip {
+    fill: var(--stalk);
+  }
+  .afig-intro .skin {
+    fill: var(--icon-skin);
+  }
+  .afig-intro .ring {
+    fill: var(--icon-ring);
+  }
+  .afig-intro .flesh,
+  .afig-intro .dot-fig {
+    fill: var(--icon-flesh);
+  }
+  .afig-intro .holes {
+    fill: var(--icon-hole);
+  }
+  .afig-intro .letters {
+    fill: var(--wordmark);
+  }
+  .afig-intro .dot-stalk {
+    stroke: var(--stalk);
+  }
+  .afig-intro .subline {
+    fill: var(--muted);
+  }
+
+  /* Each part turns or grows about its own centre; the name is wiped in from the left. */
+  .afig-intro .skin,
+  .afig-intro .ring,
+  .afig-intro .flesh,
+  .afig-intro .holes,
+  .afig-intro .wipe {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .afig-intro .wipe {
+    transform-origin: left center;
+  }
+  /* A gap twice the path's length, so no sliver of the strip shows before it unrolls. */
+  .afig-intro .unroll {
+    stroke-dasharray: 1 2;
+  }
+
+  :root[data-intro='play'] .afig-intro .flesh {
+    animation: afig-intro-grow 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+  :root[data-intro='play'] .afig-intro .holes {
+    animation: afig-intro-spin 1.4s cubic-bezier(0.15, 0.7, 0.25, 1) 0.15s both;
+  }
+  :root[data-intro='play'] .afig-intro .ring {
+    animation: afig-intro-fade 0.4s ease-out 0.45s both;
+  }
+  :root[data-intro='play'] .afig-intro .skin {
+    animation: afig-intro-fade 0.45s ease-out 0.65s both;
+  }
+  :root[data-intro='play'] .afig-intro .unroll {
+    animation: afig-intro-unroll 0.6s cubic-bezier(0.4, 0, 0.2, 1) 1.05s both;
+  }
+  :root[data-intro='play'] .afig-intro .wipe {
+    animation: afig-intro-wipe 0.55s cubic-bezier(0.5, 0, 0.2, 1) 1.55s both;
+  }
+  :root[data-intro='play'] .afig-intro .dot {
+    animation: afig-intro-drop 0.7s linear 2s both;
+  }
+  :root[data-intro='play'] .afig-intro .sub {
+    animation: afig-intro-rise 0.5s ease-out 2.5s both;
+  }
+
+  @keyframes afig-intro-grow {
+    from {
+      transform: scale(0);
+    }
+    75% {
+      transform: scale(1.08);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+  @keyframes afig-intro-spin {
+    from {
+      transform: rotate(-360deg);
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    to {
+      transform: rotate(0);
+      opacity: 1;
+    }
+  }
+  @keyframes afig-intro-fade {
+    from {
+      transform: scale(0.85);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  @keyframes afig-intro-unroll {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes afig-intro-wipe {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes afig-intro-drop {
+    0% {
+      transform: translateY(-46px);
+      opacity: 0;
+    }
+    15% {
+      opacity: 1;
+    }
+    60% {
+      transform: translateY(0);
+    }
+    75% {
+      transform: translateY(-7px);
+    }
+    90% {
+      transform: translateY(0);
+    }
+    96% {
+      transform: translateY(-1.5px);
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes afig-intro-rise {
+    from {
+      transform: translateY(6px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes afig-intro-out {
+    from {
+      opacity: 1;
+      visibility: visible;
+    }
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+</style>

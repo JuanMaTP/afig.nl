@@ -1,0 +1,583 @@
+---
+// The page frame: fonts, palette (docs/brand/design-direction.md), link previews, the navigation and the footer.
+// Daylight or Screening room follows the phone's setting, unless the visitor picks one in the footer.
+// Navigation (docs/brand/design-direction.md, Navigation and account): on wide screens a sidebar, on phones a top
+// bar whose Menu opens the same list. Both read the categories from src/lib/navigation.ts.
+import { Font } from 'astro:assets';
+import { database } from '../cloudflare';
+import BackToTop from '../components/BackToTop.astro';
+import Brand from '../components/Brand.astro';
+import Intro from '../components/Intro.astro';
+import SiteNav from '../components/SiteNav.astro';
+import ThemeSwitch from '../components/ThemeSwitch.astro';
+import { currentEntry, navigationFor } from '../lib/navigation';
+import { hostCounts } from '../lib/recommendations';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'Every upcoming Amsterdam Film Group screening: when to meet, when the film starts, the cinema, and the language and subtitles.',
+} = Astro.props;
+const site = Astro.site ?? Astro.url;
+const canonical = new URL(Astro.url.pathname, site);
+// TODO(after-launch): a 1200 × 630 share image, so WhatsApp shows a large preview instead of a thumbnail.
+const shareImage = new URL('/afig-avatar.png', site);
+const path = Astro.url.pathname;
+const member = await Astro.locals.member();
+const groups = navigationFor(member);
+const current = currentEntry(path);
+// What waits for the hosts, beside their entries. A failure leaves the counts out, never the page.
+const counts = member?.host ? await hostCounts(database(), new Date()).catch(() => null) : null;
+const waiting = counts ? counts.openTips + counts.newFilms : 0;
+// "Sign in" brings the visitor back to the page they were on.
+const signIn = path.startsWith('/sign-in') ? `${path}${Astro.url.search}` : `/sign-in?next=${encodeURIComponent(path + Astro.url.search)}`;
+const nav = { groups, current, member, counts, signIn };
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="alternate" type="text/calendar" title="AFiG events" href="/calendar.ics" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6efe3" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#10142b" />
+    <!-- A theme picked in the footer (ThemeSwitch.astro), applied before the page paints; and the logo's intro
+         (Intro.astro), decided before the page paints too: once per browser session, never with reduced motion. -->
+    <script is:inline>
+      try {
+        const theme = localStorage.getItem('afig-theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+      try {
+        if (!sessionStorage.getItem('afig-intro') && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          sessionStorage.setItem('afig-intro', 'seen');
+          document.documentElement.dataset.intro = 'play';
+        }
+      } catch {}
+    </script>
+    <!-- Link previews: nearly everyone arrives from a link in WhatsApp (plan §2). -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AFiG: Amsterdam Film Group" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={shareImage} />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+    <meta property="og:image:alt" content="The AFiG fig, cut in half" />
+    <meta name="twitter:card" content="summary" />
+    <Font cssVariable="--font-figtree" preload />
+    <Font cssVariable="--font-fraunces" preload />
+  </head>
+  <body>
+    <Intro />
+    <div class="shell">
+      <!-- Wide screens: the sidebar, which stays in view. -->
+      <aside class="sidebar">
+        <Brand />
+        <SiteNav {...nav} id="side" />
+      </aside>
+      <div class="page">
+        <!-- Phones and tablets: the logo and the Menu, which opens the same list over the page. Once the page
+             scrolls, the bar slims to 52 px (--header-compact), and the sticky day headings sit under it. -->
+        <header class="site-header">
+          <div class="bar">
+            <Brand />
+            <details class="site-menu">
+              <summary>
+                <svg class="icon-open" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+                  <path d="M2 4h12M2 8h12M2 12h12"></path>
+                </svg>
+                <svg class="icon-close" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+                  <path d="M3.5 3.5l9 9M12.5 3.5l-9 9"></path>
+                </svg>
+                <span class="label-open">Menu</span><span class="label-close">Close</span>
+                {
+                  waiting > 0 && (
+                    <span class="waiting">
+                      <span class="visually-hidden"> (new for the hosts)</span>
+                    </span>
+                  )
+                }
+              </summary>
+              <div class="menu-panel">
+                <SiteNav {...nav} id="menu" />
+              </div>
+            </details>
+          </div>
+        </header>
+        <main>
+          <slot />
+        </main>
+        <footer class="site-footer">
+          <a href="https://www.meetup.com/amsterdam-film-group/">Amsterdam Film Group on Meetup</a>
+          <a href="/privacy">Privacy</a>
+          <ThemeSwitch />
+        </footer>
+      </div>
+    </div>
+    <BackToTop />
+  </body>
+</html>
+
+<script>
+  // Phones: once the page scrolls, the top bar slims: the icon shrinks and the subline folds. Two thresholds,
+  // because folding moves the page up and Chrome then scrolls back to keep the content in place; with one
+  // threshold that would unfold the bar again, then fold it, and so on.
+  const header = document.querySelector<HTMLElement>('.site-header');
+  const menu = document.querySelector<HTMLDetailsElement>('.site-menu');
+  let compact = false;
+  let queued = false;
+
+  function update() {
+    queued = false;
+    compact = window.scrollY > (compact ? 4 : 96);
+    header?.classList.toggle('compact', compact);
+  }
+
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!queued) requestAnimationFrame(update);
+      queued = true;
+    },
+    { passive: true },
+  );
+  update();
+
+  // The menu is a <details>: it opens and closes without this script; this only closes it with Escape or a tap
+  // on the bar outside it, as a menu should, and when the screen widens into the sidebar.
+  function closeMenu(focus = false) {
+    if (!menu?.open) return;
+    menu.open = false;
+    if (focus) menu.querySelector('summary')?.focus();
+  }
+
+  document.addEventListener('click', (event) => {
+    if (menu?.open && !menu.contains(event.target as Node)) closeMenu();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeMenu(true);
+  });
+  window.matchMedia('(min-width: 960px)').addEventListener('change', (event) => {
+    if (event.matches) closeMenu();
+  });
+</script>
+
+<style is:global>
+  :root {
+    --bg: #f6efe3; /* Pith */
+    --card: #fffbf5; /* Paper */
+    --text: #1a1f3a; /* Ink */
+    --muted: #59607e;
+    --line: #e8dccb;
+    --accent: #c23a24; /* Red: 5.2 with Paper */
+    --on-accent: #fffbf5;
+    --going: #4f6b3c; /* Leaf */
+    --urgent: #c23a24; /* Red: few places left, or full */
+    --pill: #f6efe3;
+    --pill-text: #1e2a5a; /* Navy */
+    --tag: #10142b; /* Night */
+    --tag-text: #f6efe3;
+    --still: #1e2a5a;
+    --stalk: #4f6b3c; /* Leaf */
+    --icon-skin: #1e2a5a; /* Navy */
+    --icon-ring: #f6efe3; /* Pith */
+    --icon-flesh: #e5462f; /* the logo's red, in both modes */
+    --icon-hole: #fffbf5; /* Paper */
+    --wordmark: #1e2a5a; /* Navy */
+    --font-text: var(--font-figtree);
+    --font-title: var(--font-fraunces);
+    /* The header once the page scrolls: 4 + 44 (the nav's tap height) + 4. Sticky headings sit right under it. */
+    --header-compact: 52px;
+  }
+
+  /* Screening room: when the phone is dark and the visitor hasn't picked Light, or when they picked Dark.
+     CSS can't join a media query and a selector in one rule, so the two blocks repeat the same values. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: #10142b; /* Night */
+      --card: #1a2040;
+      --text: #f6efe3;
+      --muted: #b9bed6;
+      --line: #2a3156;
+      --accent: #f2846c; /* Coral: the logo's red is too dark for text on Night */
+      --on-accent: #10142b;
+      --going: #e7a64a; /* Honey */
+      --urgent: #f2846c; /* Coral */
+      --pill: #252c52;
+      --pill-text: #d9def5;
+      --tag: #f6efe3;
+      --tag-text: #10142b;
+      --still: #222a4e;
+      --stalk: #8daa6e;
+      --icon-skin: #f6efe3; /* Pith: navy disappears on Night */
+      --icon-ring: #10142b; /* the ring and holes take the ground */
+      --icon-hole: #10142b;
+      --wordmark: #f6efe3;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: #10142b;
+    --card: #1a2040;
+    --text: #f6efe3;
+    --muted: #b9bed6;
+    --line: #2a3156;
+    --accent: #f2846c;
+    --on-accent: #10142b;
+    --going: #e7a64a;
+    --urgent: #f2846c;
+    --pill: #252c52;
+    --pill-text: #d9def5;
+    --tag: #f6efe3;
+    --tag-text: #10142b;
+    --still: #222a4e;
+    --stalk: #8daa6e;
+    --icon-skin: #f6efe3;
+    --icon-ring: #10142b;
+    --icon-hole: #10142b;
+    --wordmark: #f6efe3;
+    color-scheme: dark;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  html {
+    /* Links to a day (from the month view) and focused elements land below the header, not under it. */
+    scroll-padding-top: var(--header-compact);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-text);
+    line-height: 1.4;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  main,
+  .site-footer {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  /* Phones and tablets: a top bar with the logo and the Menu, on top of the page while it scrolls. At the top of
+     the page it is 64 px (12 + 40 + 12); once the page scrolls it slims to 52 px (4 + 44 + 4), --header-compact,
+     which the sticky day headings sit under. The menu panel starts below it (--bar-height). */
+  .site-header {
+    --bar-height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    transition: box-shadow 0.15s;
+  }
+
+  .site-header.compact {
+    --bar-height: 52px;
+    box-shadow: 0 1px 0 var(--line);
+  }
+
+  .site-header .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 12px 16px;
+    transition: padding 0.15s;
+  }
+
+  .compact .bar {
+    padding-block: 4px;
+  }
+
+  .home {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    text-decoration: none;
+  }
+
+  .logo-icon {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    transition:
+      width 0.15s,
+      height 0.15s;
+  }
+
+  .compact .logo-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .fig .skin {
+    fill: var(--icon-skin);
+  }
+
+  /* The stalk is a strip of film, filled; its sprocket holes are cut out, so the header shows through. */
+  .fig .stalk {
+    fill: var(--stalk);
+  }
+
+  .fig .ring {
+    fill: var(--icon-ring);
+  }
+
+  .fig .flesh {
+    fill: var(--icon-flesh);
+  }
+
+  .fig .holes {
+    fill: var(--icon-hole);
+  }
+
+  .brand {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    row-gap: 2px;
+    transition:
+      grid-template-rows 0.15s,
+      row-gap 0.15s;
+  }
+
+  /* The subline folds away in the slim header; it stays in the link's name for screen readers. */
+  .compact .brand {
+    grid-template-rows: auto 0fr;
+    row-gap: 0;
+  }
+
+  .wordmark {
+    display: block;
+    color: var(--wordmark);
+  }
+
+  .wordmark .dot {
+    fill: var(--icon-flesh);
+  }
+
+  .wordmark .stalk {
+    stroke: var(--stalk);
+  }
+
+  .subline {
+    min-height: 0;
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+
+  .compact .subline {
+    opacity: 0;
+  }
+
+
+  /* The Menu: a <details>, so it opens without JavaScript. A pill, labelled, since an icon alone is easy to miss. */
+  .site-menu summary {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .site-menu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .site-menu svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+
+  .icon-close,
+  .label-close,
+  .site-menu[open] .icon-open,
+  .site-menu[open] .label-open {
+    display: none;
+  }
+
+  .site-menu[open] .icon-close,
+  .site-menu[open] .label-close {
+    display: inline;
+  }
+
+  /* Something waits for the hosts: a dot on the Menu, and the count beside the tool inside. */
+  .waiting {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .site-menu[open] .waiting {
+    display: none;
+  }
+
+  /* The open menu covers the page below the bar, and scrolls on its own if the list is long. */
+  .menu-panel {
+    position: fixed;
+    top: var(--bar-height);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 16px calc(32px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+  }
+
+  .menu-panel > * {
+    max-width: 520px;
+    margin-inline: auto;
+  }
+
+  /* Wide screens: the sidebar, in view while the page scrolls, with the logo, the categories and the account at
+     its foot. There is no top bar, so the sticky day headings sit at the very top. */
+  .sidebar {
+    display: none;
+  }
+
+  @media (max-width: 959px) {
+    html:has(.site-menu[open]) {
+      overflow: hidden;
+    }
+  }
+
+  @media (min-width: 960px) {
+    :root {
+      --header-compact: 0px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 264px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      height: 100vh;
+      height: 100dvh;
+      overflow-y: auto;
+      padding: 24px 16px 16px;
+      border-right: 1px solid var(--line);
+    }
+
+    .sidebar .home {
+      padding: 0 12px;
+    }
+
+    /* The account at the sidebar's foot. */
+    .shell .sidebar .account {
+      margin-top: auto;
+    }
+
+    .site-header {
+      display: none;
+    }
+
+    /* The page stays centred in the room beside the sidebar, at the width it has on its own. */
+    main,
+    .site-footer {
+      max-width: 840px;
+      margin-inline: auto;
+      padding-inline: 40px;
+    }
+
+    main {
+      padding-top: 8px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-header,
+    .site-header * {
+      transition: none !important;
+    }
+  }
+
+  .site-footer {
+    display: grid;
+    justify-items: start;
+    gap: 16px;
+    padding-top: 32px;
+    padding-bottom: 40px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  h1 {
+    font-family: var(--font-title);
+    font-weight: 400;
+    font-size: 28px;
+    line-height: 1.15;
+    margin: 16px 0 20px;
+  }
+</style>

@@ -1,0 +1,99 @@
+---
+// Auto · Light · Dark, in the footer. Auto follows the phone's setting, as the site did before there was a
+// choice; Light or Dark is remembered in this browser only (localStorage), and Base.astro applies it before
+// the page paints. Hidden until its script runs: without JavaScript the buttons would do nothing.
+---
+
+<div class="theme" role="group" aria-label="Colour theme" hidden>
+  <span class="label" aria-hidden="true">Theme</span>
+  <span class="choices">
+    <button type="button" data-theme-choice="auto" aria-pressed="true" title="Follow your device's setting">Auto</button>
+    <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+    <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+  </span>
+</div>
+
+<script>
+  type Choice = 'auto' | 'light' | 'dark';
+
+  // The key Base.astro's head script reads; the colours of its theme-color tags (Pith and Night).
+  const KEY = 'afig-theme';
+  const BROWSER_BAR = { light: '#f6efe3', dark: '#10142b' };
+
+  const group = document.querySelector<HTMLElement>('.theme');
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]')];
+
+  function saved(): Choice {
+    try {
+      const choice = localStorage.getItem(KEY);
+      return choice === 'light' || choice === 'dark' ? choice : 'auto';
+    } catch {
+      return 'auto';
+    }
+  }
+
+  function apply(choice: Choice) {
+    const root = document.documentElement;
+    if (choice === 'auto') delete root.dataset.theme;
+    else root.dataset.theme = choice;
+    for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+      meta.content = BROWSER_BAR[choice === 'auto' ? (meta.media.includes('dark') ? 'dark' : 'light') : choice];
+    }
+    for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.themeChoice === choice));
+  }
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      const choice = button.dataset.themeChoice as Choice;
+      try {
+        if (choice === 'auto') localStorage.removeItem(KEY);
+        else localStorage.setItem(KEY, choice);
+      } catch {
+        // Storage blocked (some private windows): the choice holds for this page only.
+      }
+      apply(choice);
+    });
+  }
+
+  apply(saved());
+  if (group) group.hidden = false;
+</script>
+
+<style>
+  .theme {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .theme[hidden] {
+    display: none;
+  }
+
+  /* Looks like the agenda's List · Month switch. */
+  .choices {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+  }
+
+  button {
+    min-height: 38px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  button[aria-pressed='true'] {
+    background: var(--pill);
+    color: var(--pill-text);
+    font-weight: 600;
+  }
+</style>

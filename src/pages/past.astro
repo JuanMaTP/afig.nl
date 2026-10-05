@@ -1,0 +1,213 @@
+---
+// The archive of past events (plan §5.2), rendered on demand from D1 like the agenda. One compact row
+// per event, with the host's cover as a small thumbnail: about 6 KB each, loaded as the rows scroll in.
+// TODO(after-launch): the TMDB still for an event without a cover, once films are matched (plan §5.2).
+import { database } from '../cloudflare';
+import EventsHeading from '../components/EventsHeading.astro';
+import Base from '../layouts/Base.astro';
+import { groupRating, pastEvents } from '../lib/agenda';
+import { archiveFigures, groupByMonth } from '../lib/archive';
+import { formatDay, formatRating, thumbnailSources } from '../lib/format';
+
+export const prerender = false;
+
+const db = database();
+const [past, rating] = await Promise.all([pastEvents(db, new Date()), groupRating(db)]);
+const figures = archiveFigures(past);
+const months = groupByMonth(past);
+---
+
+<Base
+  title="Past events · AFiG: Amsterdam Film Group"
+  description="The films the Amsterdam Film Group has watched together: when, where, and in which language."
+>
+  <EventsHeading view="past" />
+  {
+    past.length === 0 ? (
+      <p>No past events yet.</p>
+    ) : (
+      <>
+        <dl class="figures">
+          <div>
+            <dt>{figures.events === 1 ? 'event' : 'events'}</dt>
+            <dd>{figures.events}</dd>
+          </div>
+          <div>
+            <dt>{figures.venues === 1 ? 'venue' : 'venues'}</dt>
+            <dd>{figures.venues}</dd>
+          </div>
+          <div>
+            <dt>first event</dt>
+            <dd class="since">{figures.since}</dd>
+          </div>
+          {
+            rating && rating.count > 0 && (
+              <div>
+                <dt>
+                  from {rating.count} {rating.count === 1 ? 'rating' : 'ratings'} on Meetup
+                </dt>
+                <dd>
+                  <span aria-hidden="true">★ </span>
+                  {formatRating(rating.average)}
+                  <span class="visually-hidden"> out of 5</span>
+                </dd>
+              </div>
+            )
+          }
+        </dl>
+        {months.map((month) => (
+          <section class="month" aria-labelledby={`month-${month.key}`}>
+            <h2 id={`month-${month.key}`}>{month.label}</h2>
+            <ol class="rows">
+              {month.events.map((event) => (
+                <li>
+                  <a class="row" href={event.url} target="_blank" rel="noopener">
+                    <span class="thumb">
+                      {event.coverImageUrl && (
+                        <img
+                          {...thumbnailSources(event.coverImageUrl)}
+                          sizes="96px"
+                          width="96"
+                          height="54"
+                          loading="lazy"
+                          decoding="async"
+                          alt=""
+                        />
+                      )}
+                    </span>
+                    <span class="what">
+                      <time class="when" datetime={event.startsAt}>
+                        {formatDay(event.startsAt)}
+                      </time>
+                      <span class="title">{event.title}</span>
+                      {/* "German, English subtitles": a comma inside the language, so "·" only separates it from the venue. */}
+                      <span class="meta">{[event.venue?.name, event.language?.replace(' · ', ', ')].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    <span class="visually-hidden"> (on Meetup, opens in a new tab)</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))}
+      </>
+    )
+  }
+</Base>
+
+<style>
+  /* Two by two on a phone; one row of four (or three, before the first rating is read) on a wider screen. */
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    /* Below the Events switch, as far as the Upcoming view's calendar link sits. */
+    margin: 20px 0 8px;
+  }
+
+  @media (min-width: 600px) {
+    .figures {
+      grid-template-columns: none;
+      grid-auto-columns: minmax(0, 1fr);
+      grid-auto-flow: column;
+    }
+  }
+
+  .figures div {
+    display: flex;
+    flex-direction: column-reverse;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+  }
+
+  .figures dt {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .figures dd {
+    margin: 0;
+    font-family: var(--font-title);
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  .figures dd.since {
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  .month h2 {
+    position: sticky;
+    top: var(--header-compact);
+    margin: 0;
+    padding: 18px 0 8px;
+    background: var(--bg);
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+    overflow: hidden;
+  }
+
+  .rows li + li {
+    border-top: 1px solid var(--line);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+    padding: 12px 14px;
+    text-decoration: none;
+  }
+
+  /* The still's colour shows behind a cover that is loading or missing. */
+  .thumb {
+    display: block;
+    width: 96px;
+    aspect-ratio: 16 / 9;
+    margin-top: 2px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--still);
+  }
+
+  .thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .when {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .what {
+    display: grid;
+    gap: 2px;
+  }
+
+  .title {
+    font-family: var(--font-title);
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .meta {
+    font-size: 13px;
+    color: var(--muted);
+  }
+</style>

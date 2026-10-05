@@ -1,0 +1,48 @@
+---
+// Which cinemas the screening search reads, and which it doesn't yet (plan §5.7: the page names both).
+import { database } from '../cloudflare';
+import { formatDay, formatTime } from '../lib/format';
+import { coveredCinemas, NOT_YET_READ } from '../lib/screenings';
+
+const covered = await coveredCinemas(database());
+const notYet = NOT_YET_READ.filter((name) => !covered.some((c) => c.name.toLowerCase().includes(name.toLowerCase())));
+---
+
+<section class="coverage" aria-labelledby="coverage">
+  <h2 id="coverage">Which cinemas</h2>
+  {
+    covered.length === 0 ? (
+      <p>No cinema has been read yet.</p>
+    ) : (
+      <p>
+        Screenings come from the cinemas' own sites, read once a day:{' '}
+        {covered.map((c, i) => (
+          <>
+            {i > 0 && ', '}
+            {c.name} <span class="when">(updated {formatDay(c.storedAt)}, {formatTime(c.storedAt)})</span>
+            {i === covered.length - 1 && '.'}
+          </>
+        ))}
+      </p>
+    )
+  }
+  <p>Not read yet: {notYet.join(', ')}. More cinemas are coming.</p>
+  <p>Language and subtitles are shown only when the cinema states them. Check the cinema's page before you go.</p>
+</section>
+
+<style>
+  .coverage {
+    margin-top: 32px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .coverage h2 {
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .when {
+    white-space: nowrap;
+  }
+</style>

@@ -1,0 +1,81 @@
+---
+// The group's upcoming events (plan §5.1), the first of the Events views (EventsHeading.astro): a list by day.
+// Rendered on demand from D1, which the cron fills every 30 minutes. The month grids are at /calendar.
+import { database } from '../cloudflare';
+import EventCard from '../components/EventCard.astro';
+import EventsHeading from '../components/EventsHeading.astro';
+import SubscribeCalendar from '../components/SubscribeCalendar.astro';
+import Base from '../layouts/Base.astro';
+import { groupByDay, upcomingEvents } from '../lib/agenda';
+
+export const prerender = false;
+
+// The month view used to live here; links shared before 4 October 2026 still arrive with it.
+if (Astro.url.searchParams.get('view') === 'month') return Astro.redirect('/calendar', 301);
+
+const now = new Date();
+const agenda = await upcomingEvents(database(), now);
+const days = groupByDay(agenda, now);
+const firstId = days[0]?.events[0]?.id;
+---
+
+<Base title="AFiG: Amsterdam Film Group">
+  <div class="intro">
+    <EventsHeading view="upcoming" />
+    <SubscribeCalendar />
+  </div>
+  {
+    agenda.length === 0 ? (
+      <p>
+        No upcoming events right now. <a href="https://www.meetup.com/amsterdam-film-group/events/">See the group on Meetup</a>.
+      </p>
+    ) : (
+      days.map((day) => (
+        <section class="day" aria-labelledby={`day-${day.key}`}>
+          <h2 id={`day-${day.key}`}>
+            {day.label}
+            {day.date && <span class="date"> · {day.date}</span>}
+            {day.events.length > 1 && <span class="date"> · {day.events.length} events</span>}
+          </h2>
+          <ol class="agenda">
+            {day.events.map((event) => (
+              <li>
+                <EventCard event={event} priority={event.id === firstId} />
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))
+    )
+  }
+</Base>
+
+<style>
+  .intro {
+    margin-bottom: 8px;
+  }
+
+  .day h2 {
+    position: sticky;
+    top: var(--header-compact);
+    z-index: 1;
+    margin: 0;
+    padding: 18px 0 10px;
+    background: var(--bg);
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .date {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .agenda {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 16px;
+  }
+</style>

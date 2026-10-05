@@ -1,0 +1,60 @@
+---
+// "Subscribe to the calendar": the site's own feed, /calendar.ics, in the member's calendar app (plan §5.1).
+import { subscribeLinks } from '../lib/calendar';
+
+const calendar = subscribeLinks(new URL('/calendar.ics', Astro.url));
+---
+
+<details class="subscribe">
+  <summary>Subscribe to the calendar</summary>
+  <p>Every event in your calendar, kept up to date, with the film start and the language. For one event, use "Add to calendar" on its card.</p>
+  <ul>
+    <li><a href={calendar.webcal}>Apple Calendar</a> <span class="hint">iPhone, iPad, Mac</span></li>
+    <li><a href={calendar.google}>Google Calendar</a></li>
+    <li>Other apps: subscribe to <span class="address">{calendar.https}</span></li>
+  </ul>
+</details>
+
+<style>
+  .subscribe {
+    font-size: 15px;
+  }
+
+  .subscribe summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .subscribe p,
+  .subscribe ul {
+    margin: 4px 0 0;
+    color: var(--muted);
+  }
+
+  .subscribe ul {
+    padding-left: 18px;
+  }
+
+  .subscribe li {
+    padding: 6px 0;
+  }
+
+  .subscribe a {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .hint {
+    font-size: 13px;
+  }
+
+  .address {
+    overflow-wrap: anywhere;
+    user-select: all;
+    color: var(--text);
+  }
+</style>

@@ -1,0 +1,39 @@
+---
+// The group's upcoming events by month (plan §5.1), the second of the Events views (EventsHeading.astro). Each
+// day with events links to that day in the list. Not to be confused with /calendar.ics, the feed.
+import { database } from '../cloudflare';
+import EventsHeading from '../components/EventsHeading.astro';
+import MonthCalendar from '../components/MonthCalendar.astro';
+import SubscribeCalendar from '../components/SubscribeCalendar.astro';
+import Base from '../layouts/Base.astro';
+import { upcomingEvents } from '../lib/agenda';
+import { monthGrids } from '../lib/month-grid';
+
+export const prerender = false;
+
+const now = new Date();
+const agenda = await upcomingEvents(database(), now);
+const months = monthGrids(agenda, now);
+---
+
+<Base title="Event calendar · AFiG: Amsterdam Film Group">
+  <div class="intro">
+    <EventsHeading view="calendar" />
+    <SubscribeCalendar />
+  </div>
+  {
+    agenda.length === 0 ? (
+      <p>
+        No upcoming events right now. <a href="https://www.meetup.com/amsterdam-film-group/events/">See the group on Meetup</a>.
+      </p>
+    ) : (
+      <MonthCalendar months={months} />
+    )
+  }
+</Base>
+
+<style>
+  .intro {
+    margin-bottom: 8px;
+  }
+</style>

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AFiG style tile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap">
+<style>
+  :root {
+    --pith: #F6EFE3; --paper: #FFFBF5; --ink: #2B1A28; --muted: #6B5566;
+    --skin: #5B2A4F; --fig: #B23A50; --flesh: #E46B77; --honey: #E7A64A;
+    --leaf: #4F6B3C; --night: #1F1320; --line: #E8DCCB;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #EEE7DD; color: var(--ink); font-family: 'Figtree', system-ui, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 40px; }
+  .fr { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+  .eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+  h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 400; font-size: 28px; line-height: 1.15; margin: 0 0 20px; }
+  .label { font-size: 12px; color: var(--muted); margin: 0 0 8px; letter-spacing: 0.02em; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  section { margin-bottom: 14px; }
+  .swatches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .chip { height: 44px; border-radius: 8px; border: 1px solid rgba(43, 26, 40, 0.12); }
+  .sname { font-size: 12px; margin: 6px 0 0; }
+  .shex { font-size: 11px; color: var(--muted); margin: 0; font-family: ui-monospace, Menlo, monospace; }
+  .card { border-radius: 14px; overflow: hidden; }
+  .still { aspect-ratio: 16 / 9; display: flex; align-items: flex-end; justify-content: space-between; padding: 10px; }
+  .tag { font-size: 11px; padding: 3px 8px; border-radius: 6px; }
+  .body { padding: 16px 18px 18px; }
+  .title { font-family: 'Fraunces', Georgia, serif; font-size: 23px; line-height: 1.15; margin: 0; font-weight: 400; }
+  .pill { display: inline-block; font-size: 12px; border-radius: 6px; padding: 3px 8px; margin-top: 8px; }
+  .meta { font-size: 14px; margin: 12px 0 0; }
+  .venue { font-size: 13px; margin: 3px 0 0; }
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 14px; }
+  .btn { font-size: 13px; font-weight: 500; padding: 8px 12px; border-radius: 8px; white-space: nowrap; }
+  .note { font-size: 13px; color: var(--muted); margin: 16px 2px 0; line-height: 1.5; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">AFiG · design direction, proposal</p>
+  <h1>The fig as seasoning, not decoration</h1>
+
+  <section class="two">
+    <div class="panel" style="display:flex;align-items:center;gap:16px">
+      <svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="AFiG icon: a fig cut in half, its seeds arranged like the holes of a film reel">
+        <path d="M32 7 C35 7 36 12 39 16 C49 23 52 34 50 44 C48 55 40 60 32 60 C24 60 16 55 14 44 C12 34 15 23 25 16 C28 12 29 7 32 7 Z" fill="#5B2A4F"/>
+        <path d="M32 7 L34 2.5" stroke="#4F6B3C" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+        <path d="M32 7 C35 7 36 12 39 16 C49 23 52 34 50 44 C48 55 40 60 32 60 C24 60 16 55 14 44 C12 34 15 23 25 16 C28 12 29 7 32 7 Z" fill="#F6EFE3" transform="translate(32 42) scale(0.8) translate(-32 -40)"/>
+        <path d="M32 7 C35 7 36 12 39 16 C49 23 52 34 50 44 C48 55 40 60 32 60 C24 60 16 55 14 44 C12 34 15 23 25 16 C28 12 29 7 32 7 Z" fill="#E46B77" transform="translate(32 43) scale(0.64) translate(-32 -40)"/>
+        <circle cx="32" cy="42" r="2.6" fill="#7A2238"/>
+        <circle cx="32" cy="34.5" r="2.4" fill="#7A2238"/>
+        <circle cx="39.1" cy="39.7" r="2.4" fill="#7A2238"/>
+        <circle cx="36.4" cy="48.1" r="2.4" fill="#7A2238"/>
+        <circle cx="27.6" cy="48.1" r="2.4" fill="#7A2238"/>
+        <circle cx="24.9" cy="39.7" r="2.4" fill="#7A2238"/>
+      </svg>
+      <div>
+        <div style="font-size:54px;line-height:1;font-weight:500;letter-spacing:-0.5px;white-space:nowrap" aria-label="AFiG">AF<svg viewBox="0 0 30 80" style="height:0.8em;width:0.3em;vertical-align:baseline" aria-hidden="true"><path d="M15 4 C16.4 4 16.9 6.6 18.8 8.6 C22.6 12.4 22.4 20.5 15 21.5 C7.6 20.5 7.4 12.4 11.2 8.6 C13.1 6.6 13.6 4 15 4 Z" fill="#5B2A4F"/><path d="M15 4 L16.6 0.9" stroke="#4F6B3C" stroke-width="1.6" stroke-linecap="round" fill="none"/><rect x="10.5" y="28" width="9" height="52" fill="#2B1A28"/></svg>G</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px">Amsterdam Film Group</div>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="label">Palette</p>
+      <div class="swatches">
+        <div><div class="chip" style="background:#F6EFE3"></div><p class="sname">Pith</p><p class="shex">#F6EFE3</p></div>
+        <div><div class="chip" style="background:#2B1A28"></div><p class="sname">Ink</p><p class="shex">#2B1A28</p></div>
+        <div><div class="chip" style="background:#5B2A4F"></div><p class="sname">Fig skin</p><p class="shex">#5B2A4F</p></div>
+        <div><div class="chip" style="background:#B23A50"></div><p class="sname">Fig</p><p class="shex">#B23A50</p></div>
+        <div><div class="chip" style="background:#E46B77"></div><p class="sname">Fig flesh</p><p class="shex">#E46B77</p></div>
+        <div><div class="chip" style="background:#E7A64A"></div><p class="sname">Honey</p><p class="shex">#E7A64A</p></div>
+        <div><div class="chip" style="background:#4F6B3C"></div><p class="sname">Leaf</p><p class="shex">#4F6B3C</p></div>
+        <div><div class="chip" style="background:#1F1320"></div><p class="sname">Night</p><p class="shex">#1F1320</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel two" style="align-items:end">
+    <div>
+      <p class="label">Fraunces, for film titles</p>
+      <p class="fr" style="font-size:32px;line-height:1.1;margin:0">Amores Perros</p>
+    </div>
+    <div>
+      <p class="label">Figtree, for everything else</p>
+      <p style="font-size:16px;margin:0">Sun 11 Oct · meet 18:30 · film 19:30</p>
+    </div>
+  </section>
+
+  <section class="two">
+    <div>
+      <p class="label">Daylight</p>
+      <div class="card" style="background:var(--paper);border:1px solid var(--line)">
+        <div class="still" style="background:#5B2A4F">
+          <span class="tag" style="background:#1F1320;color:#F6EFE3">4K restoration</span>
+          <span style="font-size:11px;color:#CDB9C4">film still goes here</span>
+        </div>
+        <div class="body">
+          <p class="title" style="color:var(--ink)">Amores Perros</p>
+          <span class="pill" style="background:var(--pith);color:var(--skin)">Spanish · English subtitles</span>
+          <p class="meta" style="color:var(--ink)">Sun 11 Oct · meet 18:30 · film 19:30</p>
+          <p class="venue" style="color:var(--muted)">Eye Filmmuseum · Cinema 3</p>
+          <div class="foot">
+            <span style="font-size:13px;color:var(--leaf)">13 going · 7 places left</span>
+            <span class="btn" style="background:var(--fig);color:var(--paper)">RSVP on Meetup</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="label">Screening room</p>
+      <div class="card" style="background:var(--night);border:1px solid #3A2438">
+        <div class="still" style="background:#3A2236">
+          <span class="tag" style="background:#F6EFE3;color:#1F1320">4K restoration</span>
+          <span style="font-size:11px;color:#CDB9C4">film still goes here</span>
+        </div>
+        <div class="body">
+          <p class="title" style="color:#F6EFE3">Amores Perros</p>
+          <span class="pill" style="background:#3D2439;color:#F0C9CF">Spanish · English subtitles</span>
+          <p class="meta" style="color:#F6EFE3">Sun 11 Oct · meet 18:30 · film 19:30</p>
+          <p class="venue" style="color:#CDB9C4">Eye Filmmuseum · Cinema 3</p>
+          <div class="foot">
+            <span style="font-size:13px;color:var(--honey)">13 going · 7 places left</span>
+            <span class="btn" style="background:var(--flesh);color:var(--night)">RSVP on Meetup</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">Example card: your real Amores Perros event at Eye (11 October), with the RSVP numbers from Meetup on 30 September. On the site, the purple block is replaced by the film still the host chose.</p>
+</div>
+</body>
+</html>

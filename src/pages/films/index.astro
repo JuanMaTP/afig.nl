@@ -1,0 +1,205 @@
+---
+// The screening search (plan §5.7): find a film, then see where it plays in Amsterdam. The title is looked up
+// on TMDB, so a film can be found by its original, translated or alternative title; the screenings come
+// from the index the daily cinema run fills. In the header as the Film finder, for members who sign in (plan §8).
+import { database, tmdb } from '../../cloudflare';
+import CoveredCinemas from '../../components/CoveredCinemas.astro';
+import TmdbCredit from '../../components/TmdbCredit.astro';
+import Base from '../../layouts/Base.astro';
+import { formatDay } from '../../lib/format';
+import { playingNow } from '../../lib/screenings';
+import { releaseYear, type TmdbSearchResult, TmdbError } from '../../lib/tmdb/client';
+
+export const prerender = false;
+
+// Members only while it is tried out (plan §8): without a session, sign in first and come back here.
+if (!(await Astro.locals.member())) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`);
+
+const MAX_RESULTS = 10;
+const now = new Date();
+const db = database();
+const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
+const playing = await playingNow(db, now);
+const playingIds = new Set(playing.map((f) => f.tmdbId));
+
+let results: TmdbSearchResult[] = [];
+let unavailable = false;
+if (query) {
+  const client = tmdb();
+  try {
+    results = client ? (await client.searchMovies(query)).slice(0, MAX_RESULTS) : [];
+    unavailable = !client;
+  } catch (error) {
+    if (!(error instanceof TmdbError)) throw error;
+    unavailable = true;
+  }
+}
+const poster = (path: string | null | undefined) => (path ? `https://image.tmdb.org/t/p/w92${path}` : null);
+---
+
+<Base
+  title={query ? `${query} · Film finder · AFiG: Amsterdam Film Group` : 'Film finder · AFiG: Amsterdam Film Group'}
+  description="Is a film playing in Amsterdam? Where, when, and in which language and subtitles."
+>
+  <h1>Film finder</h1>
+  <p class="lead">Is it playing in Amsterdam? Where, when, and with which subtitles.</p>
+  <form method="get" action="/films" role="search">
+    <label for="q" class="visually-hidden">Film title</label>
+    <input id="q" name="q" type="search" value={query} placeholder="A title, in any language" autocomplete="off" required />
+    <button type="submit">Search</button>
+  </form>
+
+  {
+    query &&
+      (unavailable ? (
+        <p class="note">The search isn't available right now. Please try again later.</p>
+      ) : results.length === 0 ? (
+        <p class="note">No film found for "{query}".</p>
+      ) : (
+        <ol class="results">
+          {results.map((film) => (
+            <li>
+              <a href={`/films/${film.id}`}>
+                {poster(film.poster_path) ? (
+                  <img src={poster(film.poster_path)} alt="" width="46" height="69" loading="lazy" />
+                ) : (
+                  <span class="no-poster" />
+                )}
+                <span class="name">
+                  {film.title}
+                  {releaseYear(film.release_date) && <span class="year"> ({releaseYear(film.release_date)})</span>}
+                  {film.original_title !== film.title && <span class="original">{film.original_title}</span>}
+                </span>
+                {playingIds.has(film.id) && <span class="playing">Playing</span>}
+              </a>
+            </li>
+          ))}
+        </ol>
+      ))
+  }
+
+  {
+    playing.length > 0 && (
+      <section aria-labelledby="playing">
+        <h2 id="playing">Playing now</h2>
+        <ol class="results">
+          {playing.map((film) => (
+            <li>
+              <a href={`/films/${film.tmdbId}`}>
+                {poster(film.posterPath) ? (
+                  <img src={poster(film.posterPath)} alt="" width="46" height="69" loading="lazy" />
+                ) : (
+                  <span class="no-poster" />
+                )}
+                <span class="name">
+                  {film.title}
+                  {film.year && <span class="year"> ({film.year})</span>}
+                  <span class="original">
+                    Next: {formatDay(film.next)} · {film.screenings} {film.screenings === 1 ? 'screening' : 'screenings'}
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+
+  <CoveredCinemas />
+  <TmdbCredit />
+</Base>
+
+<style>
+  .lead {
+    color: var(--muted);
+  }
+
+  form {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0 24px;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+  }
+
+  button {
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .note {
+    color: var(--muted);
+  }
+
+  .results {
+    list-style: none;
+    margin: 0 0 24px;
+    padding: 0;
+  }
+
+  .results a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .results img,
+  .no-poster {
+    flex: none;
+    width: 46px;
+    height: 69px;
+    border-radius: 4px;
+    background: var(--still);
+    object-fit: cover;
+  }
+
+  .name {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  .year {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .original {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .playing {
+    flex: none;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--pill);
+    color: var(--going);
+  }
+</style>

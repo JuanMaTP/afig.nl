@@ -1,0 +1,282 @@
+---
+// Recommended films (plan §5.3): what members recommended, which only the hosts see. The most recommended first,
+// or the latest (`?order=latest`), with who recommended each film and why, whether it plays in Amsterdam now, and
+// the group's latest event with it. A host can set a film aside (done, or not for the group); its
+// recommendations stay. Hosts only.
+import { database } from '../../cloudflare';
+import Hosts from '../../layouts/Hosts.astro';
+import { formatDay } from '../../lib/format';
+import { type FilmOrder, hostFilmList, setAside } from '../../lib/recommendations';
+import { playingNow } from '../../lib/screenings';
+
+export const prerender = false;
+
+const member = await Astro.locals.member();
+if (!member) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+if (!member.host) return new Response(null, { status: 404 });
+
+const now = new Date();
+const db = database();
+const order: FilmOrder = Astro.url.searchParams.get('order') === 'latest' ? 'latest' : 'most';
+const here = order === 'latest' ? '/hosts/films?order=latest' : '/hosts/films';
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const film = Number(form.get('film'));
+  const intent = form.get('intent');
+  if (Number.isSafeInteger(film) && (intent === 'aside' || intent === 'back')) await setAside(db, film, intent === 'aside', now);
+  return Astro.redirect(`${here}#film-${film}`, 303);
+}
+
+const [list, playing] = await Promise.all([hostFilmList(db, order), playingNow(db, now)]);
+const playingIds = new Set(playing.map((film) => film.tmdbId));
+const groups = [
+  { key: 'open', heading: null, films: list.filter((film) => !film.setAside) },
+  { key: 'aside', heading: 'Set aside', films: list.filter((film) => film.setAside) },
+].filter((group) => group.films.length > 0);
+const poster = (path: string | null) => (path ? `https://image.tmdb.org/t/p/w92${path}` : null);
+const members = (n: number) => `${n} ${n === 1 ? 'member' : 'members'}`;
+---
+
+<Hosts title="Recommended films">
+  <div class="heading">
+    <h1>Recommended films</h1>
+    <nav class="order" aria-label="Order">
+      <a href="/hosts/films" aria-current={order === 'most' ? 'page' : undefined}>Most recommended</a>
+      <a href="/hosts/films?order=latest" aria-current={order === 'latest' ? 'page' : undefined}>Latest</a>
+    </nav>
+  </div>
+  <p class="lead">
+    What members recommended, with who and why. Only the hosts see this: members see only their own, so no one is swayed by
+    what others chose.
+  </p>
+
+  {list.length === 0 && <p class="empty">No film recommended yet.</p>}
+
+  {
+    groups.map((group) => (
+      <section aria-label={group.heading ?? 'Recommended'}>
+        {group.heading && <h2>{group.heading}</h2>}
+        <ol class="films">
+          {group.films.map((film) => (
+            <li class="film" id={`film-${film.filmId}`}>
+              {poster(film.posterPath) ? (
+                <img src={poster(film.posterPath)} alt="" width="46" height="69" loading="lazy" />
+              ) : (
+                <span class="no-poster" />
+              )}
+              <div class="body">
+                <h3>
+                  {film.title}
+                  {film.year && <span class="year"> ({film.year})</span>}
+                </h3>
+                <p class="facts">
+                  <span class="count">{members(film.members)}</span>
+                  {playingIds.has(film.tmdbId) && (
+                    <a href={`/films/${film.tmdbId}`} class="playing">
+                      Playing in Amsterdam
+                    </a>
+                  )}
+                  {film.lastEvent && (
+                    <a href={film.lastEvent.url} target="_blank" rel="noopener">
+                      {film.lastEvent.startsAt > now.toISOString() ? 'Event' : 'Last event'} {formatDay(film.lastEvent.startsAt)}
+                    </a>
+                  )}
+                </p>
+                <ul class="notes">
+                  {film.notes.map((note) => (
+                    <li>
+                      {note.note && <p class="why">{note.note}</p>}
+                      <p class="sender">
+                        {note.name} · <a href={`mailto:${note.email}`}>{note.email}</a> · {formatDay(note.createdAt)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <form method="post" action={here}>
+                <input type="hidden" name="film" value={film.filmId} />
+                <input type="hidden" name="intent" value={film.setAside ? 'back' : 'aside'} />
+                <button type="submit">{film.setAside ? 'Bring back' : 'Set aside'}</button>
+              </form>
+            </li>
+          ))}
+        </ol>
+      </section>
+    ))
+  }
+</Hosts>
+
+<style>
+  .heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+  }
+
+  .heading h1 {
+    margin-bottom: 12px;
+  }
+
+  /* The order switch, a segmented control like the views of Events. */
+  .order {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+  }
+
+  .order a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .order a[aria-current='page'] {
+    background: var(--pill);
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .count {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .lead,
+  .empty {
+    color: var(--muted);
+  }
+
+  h2 {
+    margin: 32px 0 0;
+    font-family: var(--font-title);
+    font-size: 22px;
+    font-weight: 400;
+  }
+
+  .films {
+    display: grid;
+    gap: 12px;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .film {
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 12px 16px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+    scroll-margin-top: calc(var(--header-compact) + 16px);
+  }
+
+  .film img,
+  .no-poster {
+    width: 46px;
+    height: 69px;
+    border-radius: 4px;
+    background: var(--still);
+    object-fit: cover;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 17px;
+  }
+
+  .year {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .facts a {
+    color: var(--accent);
+  }
+
+  .facts .playing {
+    font-weight: 600;
+    color: var(--going);
+  }
+
+  .notes {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .notes li {
+    padding-left: 12px;
+    border-left: 2px solid var(--line);
+  }
+
+  .why {
+    margin: 0;
+    white-space: pre-line;
+  }
+
+  .sender {
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .sender a {
+    color: inherit;
+  }
+
+  form {
+    grid-column: 2;
+    margin: 0;
+  }
+
+  button {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--accent);
+  }
+
+  @media (min-width: 700px) {
+    .film {
+      grid-template-columns: 46px 1fr auto;
+    }
+
+    form {
+      grid-column: 3;
+      grid-row: 1;
+    }
+  }
+</style>

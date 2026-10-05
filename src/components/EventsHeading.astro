@@ -1,0 +1,68 @@
+---
+// The group's events in three views (plan §5.1, §5.2): what's coming as a list, the same by month, and the
+// archive. One heading and one switch for all three (docs/brand/design-direction.md, Navigation and account).
+interface Props {
+  view: 'upcoming' | 'calendar' | 'past';
+}
+
+const { view } = Astro.props;
+const views = [
+  { key: 'upcoming', label: 'Upcoming', href: '/' },
+  { key: 'calendar', label: 'Calendar', href: '/calendar' },
+  { key: 'past', label: 'Past', href: '/past' },
+] as const;
+---
+
+<div class="heading">
+  <h1>Events</h1>
+  <nav class="views" aria-label="Events">
+    {
+      views.map((v) => (
+        <a href={v.href} aria-current={v.key === view ? 'page' : undefined}>
+          {v.label}
+        </a>
+      ))
+    }
+  </nav>
+</div>
+
+<style>
+  .heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin: 16px 0 4px;
+  }
+
+  h1 {
+    margin: 0;
+  }
+
+  .views {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+  }
+
+  .views a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .views a[aria-current='page'] {
+    background: var(--pill);
+    color: var(--pill-text);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,90 @@
+---
+// Member sign-in (plan §6): Google for now; the email link comes next. A plain form that posts to
+// /auth/google, so it needs no JavaScript. What the site keeps is said here, before anyone signs in (plan §6,
+// Privacy), with the full notice at /privacy. TODO(after-launch): deleting an account from the site.
+import { googleSignInReady } from '../cloudflare';
+import Base from '../layouts/Base.astro';
+import { safeNext } from '../lib/auth';
+
+export const prerender = false;
+
+const next = safeNext(Astro.url.searchParams.get('next'), '/films');
+if (await Astro.locals.member()) return Astro.redirect(next);
+
+const googleReady = googleSignInReady();
+const failed = Astro.url.searchParams.has('error');
+---
+
+<Base title="Sign in · AFiG: Amsterdam Film Group" description="Sign in to AFiG: Amsterdam Film Group.">
+  <h1>Sign in</h1>
+  <p class="lead">
+    The Film finder, which tells you where a film plays in Amsterdam, and Recommend, where you suggest films and screenings
+    to the hosts, are open to members who sign in.
+  </p>
+
+  {failed && <p class="error" role="alert">Signing in didn't work. Please try again.</p>}
+
+  {
+    googleReady ? (
+      <form method="post" action="/auth/google">
+        <input type="hidden" name="next" value={next} />
+        <button type="submit">Continue with Google</button>
+      </form>
+    ) : (
+      <p class="note">Signing in isn't available yet.</p>
+    )
+  }
+
+  <section class="privacy" aria-labelledby="privacy">
+    <h2 id="privacy">What we keep</h2>
+    <p>
+      Your name and email address from Google, only to know it's you: no picture, and no access to your Google account.
+      They are stored in the EU and never sold. Cookies keep you signed in; they are needed for that, so there is nothing
+      to accept. When you recommend a film or send a screening, the hosts see your name and email with it, so they can
+      reply; other members never do.
+    </p>
+    <p>
+      To have your account deleted, with everything you sent, write to the organizer or message us on
+      <a href="https://www.meetup.com/amsterdam-film-group/">Meetup</a>. Everything, with who is responsible and your
+      rights, is in our <a href="/privacy">privacy notice</a>.
+    </p>
+  </section>
+</Base>
+
+<style>
+  .lead,
+  .note,
+  .privacy {
+    color: var(--muted);
+  }
+
+  form {
+    margin: 24px 0 32px;
+  }
+
+  button {
+    min-height: 44px;
+    padding: 0 20px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .error {
+    color: var(--urgent);
+  }
+
+  .privacy {
+    margin-top: 32px;
+    font-size: 14px;
+  }
+
+  .privacy h2 {
+    font-size: 16px;
+    color: var(--text);
+  }
+</style>

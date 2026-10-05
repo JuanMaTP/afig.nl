@@ -1,0 +1,82 @@
+---
+// Screening tips (plan §5.3): the links members sent from /recommend, the open ones first. A host marks one
+// done once dealt with (a new venue goes through the intake in `AFG Bulk Cinema Run.md` §10). Hosts only.
+import { database } from '../../cloudflare';
+import HostTip from '../../components/HostTip.astro';
+import Hosts from '../../layouts/Hosts.astro';
+import { hostTips, setTipDone } from '../../lib/recommendations';
+
+export const prerender = false;
+
+const member = await Astro.locals.member();
+if (!member) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+if (!member.host) return new Response(null, { status: 404 });
+
+const db = database();
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = Number(form.get('id'));
+  const intent = form.get('intent');
+  if (Number.isSafeInteger(id) && (intent === 'done' || intent === 'reopen')) await setTipDone(db, id, intent === 'done', new Date());
+  return Astro.redirect('/hosts/tips', 303);
+}
+
+const { open, done } = await hostTips(db);
+---
+
+<Hosts title="Screening tips">
+  <h1>Screening tips</h1>
+  <p class="lead">
+    Screenings and venues members spotted. Each link is as a member pasted it: check where it goes before you open it.
+  </p>
+
+  {
+    open.length === 0 ? (
+      <p class="empty">No open tips.</p>
+    ) : (
+      <ol class="tips">
+        {open.map((tip) => (
+          <HostTip tip={tip} />
+        ))}
+      </ol>
+    )
+  }
+
+  {
+    done.length > 0 && (
+      <details class="done">
+        <summary>Done, the latest {done.length}</summary>
+        <ol class="tips">
+          {done.map((tip) => (
+            <HostTip tip={tip} />
+          ))}
+        </ol>
+      </details>
+    )
+  }
+</Hosts>
+
+<style>
+  .lead,
+  .empty {
+    color: var(--muted);
+  }
+
+  .tips {
+    display: grid;
+    gap: 12px;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .done {
+    margin-top: 32px;
+  }
+
+  .done summary {
+    min-height: 44px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+</style>

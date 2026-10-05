@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "afig-website",
+  // Custom entrypoint: Astro's fetch handler plus the ingest cron (plan §9).
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-09-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  // The host tools check the host role themselves; no open workers.dev side door (plan §9, Admin security).
+  "workers_dev": false,
+  // Nor preview URLs: they would run with the production D1 and secrets (CLAUDE.md, D1).
+  "preview_urls": false,
+  // The site's only address. www.afig.nl and amsterdamfilmgroup.nl forward here with Redirect Rules
+  // in the Cloudflare dashboard (plan §9, Domains).
+  "routes": [{ "pattern": "afig.nl", "custom_domain": true }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "afig-website",
+      // Created on 2 October 2026 with `--jurisdiction=eu` (CLAUDE.md, D1). Never remove this line:
+      // without an id, wrangler deploy creates a database itself, outside the EU jurisdiction.
+      "database_id": "37130f5a-cdc4-4644-9d65-6e056503fd67",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // The secrets the Worker reads (CLAUDE.md, Secrets), so `wrangler types` types them without a .dev.vars,
+  // as on a fresh clone. Their values live in Cloudflare's secret store and in .dev.vars. HOST_EMAILS is
+  // optional (without it nobody is a host), so it isn't listed: src/cloudflare.ts reads it as optional.
+  "secrets": {
+    "required": ["TMDB_TOKEN", "BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Every 30 minutes the Meetup ingest; daily at 04:15 UTC the cinema run (src/worker.ts tells them apart).
+  "triggers": {
+    "crons": ["*/30 * * * *", "15 4 * * *"]
+  }
+}

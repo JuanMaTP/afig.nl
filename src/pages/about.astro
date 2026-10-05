@@ -1,0 +1,186 @@
+---
+// About the group (plan §7, phase 1a): who we are and how an evening works, for newcomers above all; the name's
+// story (docs/brand/design-direction.md); how to join, with Meetup's link and never WhatsApp's invite (plan §8);
+// the site's sources with TMDB's attribution (CLAUDE.md); and what the site keeps (plan §6). The figures are the
+// archive's, read on each request like the rest of the site.
+import { database } from '../cloudflare';
+import TmdbCredit from '../components/TmdbCredit.astro';
+import Base from '../layouts/Base.astro';
+import { groupRating, pastEvents } from '../lib/agenda';
+import { archiveFigures } from '../lib/archive';
+import { formatRating } from '../lib/format';
+
+export const prerender = false;
+
+const MEETUP = 'https://www.meetup.com/amsterdam-film-group/';
+const db = database();
+const [past, rating] = await Promise.all([pastEvents(db, new Date()), groupRating(db)]);
+const figures = archiveFigures(past);
+---
+
+<Base
+  title="About · AFiG: Amsterdam Film Group"
+  description="AFiG: Amsterdam Film Group goes to the cinema together. Who we are, how an evening works, and how to join."
+>
+  <h1>About AFiG</h1>
+  <p class="lead">
+    AFiG: Amsterdam Film Group goes to the cinema together. We are a community first and a film club second, with a strong
+    preference for interesting cinema.
+  </p>
+  {
+    figures.since && (
+      <p class="figures">
+        Since {figures.since}: {figures.events} events at {figures.venues} cinemas and venues
+        {rating && <>, rated {formatRating(rating.average)} out of 5 by members on Meetup</>}.
+      </p>
+    )
+  }
+
+  <section aria-labelledby="evening">
+    <h2 id="evening">How an evening works</h2>
+    <ol class="steps">
+      <li>
+        <strong>Pick an event</strong> in <a href="/">Events</a> and RSVP on Meetup, so the host knows you are coming.
+      </li>
+      <li>
+        <strong>Buy your own ticket</strong> from the cinema; a Cineville pass works at most of the cinemas we go to. Where
+        seats are assigned, the event says where the host sits, so you can book nearby.
+      </li>
+      <li>
+        <strong>Meet in the lobby at the meetup time.</strong> It is earlier than the film, and every event shows both
+        times. We go in together shortly before the start, so please don't be late.
+      </li>
+      <li><strong>Stay for a drink afterwards.</strong> Talking about the film is half the point.</li>
+    </ol>
+    <p>Every event shows its language and subtitles, because that decides whether a film works for you.</p>
+  </section>
+
+  <section aria-labelledby="films">
+    <h2 id="films">What we watch</h2>
+    <p>
+      Classics and repertory, cult films, restorations and retrospectives, festival screenings, and one-off specials with
+      an introduction or a Q&amp;A. New releases too, when the screening is something special, like IMAX or 70mm. Mostly at
+      Amsterdam's arthouse cinemas: Eye, LAB111, Kriterion, FilmHallen, Studio/K, De Uitkijk and more.
+    </p>
+  </section>
+
+  <section aria-labelledby="name">
+    <h2 id="name">The name</h2>
+    <p>
+      AFiG is said "a-fig", like the fruit. A fig flowers on the inside, like a cinema: its flowers bloom hidden inside the
+      fruit. Our logo is a fig cut in half, with its seeds set like the holes of a film reel.
+    </p>
+  </section>
+
+  <section aria-labelledby="join">
+    <h2 id="join">Join us</h2>
+    <p>
+      The group lives on <a href={MEETUP}>Meetup</a>: every event is published there, and that is where you RSVP. Members
+      also chat in a WhatsApp community; you will find the way in on our Meetup page, or at an event.
+    </p>
+    <p>
+      Want to suggest a film, or a screening you spotted? Sign in and use <a href="/recommend">Recommend</a>. To host a screening
+      yourself, message the organizers on <a href={MEETUP}>Meetup</a>.
+    </p>
+  </section>
+
+  <section aria-labelledby="site">
+    <h2 id="site">This website</h2>
+    <p>Made by the group's hosts, as volunteers. It has no ads and sells nothing.</p>
+    <ul>
+      <li>The events come from our Meetup page, updated every half hour: hosts publish them there, once.</li>
+      <li>Film details come from TMDB.</li>
+      <li>
+        The <a href="/films">Film finder</a> reads the cinemas' own websites once a day, and shows a film's language and
+        subtitles only as the cinema states them.
+      </li>
+      <li>Members who sign in can <a href="/recommend">recommend</a> films and screenings to the hosts.</li>
+    </ul>
+    <TmdbCredit />
+  </section>
+
+  <section aria-labelledby="privacy">
+    <h2 id="privacy">Privacy</h2>
+    <p>
+      Reading this site needs no account and sets no cookies. If you sign in with Google, to use the Film finder or to
+      recommend, we keep your name and email address, stored in the EU, only to know it's you. They are never sold.
+    </p>
+    <p>
+      What you recommend, and the screenings you send, are kept with your name and email so the hosts can see who sent them
+      and reply. Other members never see them.
+    </p>
+    <p>
+      Who is responsible, what else is involved, and how to see or delete your data: our <a href="/privacy">privacy notice</a>.
+    </p>
+  </section>
+</Base>
+
+<style>
+  .lead {
+    font-size: 18px;
+  }
+
+  .figures {
+    color: var(--muted);
+  }
+
+  section {
+    margin-top: 32px;
+  }
+
+  h2 {
+    margin: 0 0 8px;
+    font-family: var(--font-title);
+    font-size: 22px;
+    font-weight: 400;
+  }
+
+  p,
+  li {
+    line-height: 1.55;
+  }
+
+  a {
+    color: var(--accent);
+  }
+
+  .steps {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0 16px;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+  }
+
+  /* The steps' numbers in small circles, in the wordmark's colours, as the account's initial. */
+  .steps li {
+    position: relative;
+    padding-left: 40px;
+    counter-increment: step;
+  }
+
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--wordmark);
+    color: var(--bg);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  ul {
+    padding-left: 20px;
+  }
+
+  ul li {
+    padding: 2px 0;
+  }
+</style>

@@ -1,0 +1,96 @@
+---
+// One screening tip in the hosts' list (src/pages/hosts/tips.astro): the site's name first, so a strange address
+// stands out, then the full link, the member's note and who sent it, with the button that moves it between
+// open and done. The link never sends this page's address along (rel="noreferrer").
+import { formatDay, formatTime } from '../lib/format';
+import type { HostTip } from '../lib/recommendations';
+
+interface Props {
+  tip: HostTip;
+}
+
+const { tip } = Astro.props;
+const site = new URL(tip.url).hostname.replace(/^www\./, '');
+const when = (iso: string) => `${formatDay(iso)}, ${formatTime(iso)}`;
+---
+
+<li class="tip">
+  <a class="site" href={tip.url} target="_blank" rel="noopener noreferrer nofollow">
+    {site}<span class="visually-hidden"> (opens in a new tab)</span>
+  </a>
+  <p class="url">{tip.url}</p>
+  {tip.note && <p class="note">{tip.note}</p>}
+  <p class="from">
+    From {tip.name} · <a href={`mailto:${tip.email}`}>{tip.email}</a> · {when(tip.createdAt)}
+    {tip.doneAt && <> · done {formatDay(tip.doneAt)}</>}
+  </p>
+  <form method="post" action="/hosts/tips">
+    <input type="hidden" name="id" value={tip.id} />
+    <input type="hidden" name="intent" value={tip.doneAt ? 'reopen' : 'done'} />
+    <button type="submit" class:list={{ secondary: tip.doneAt }}>{tip.doneAt ? 'Reopen' : 'Done'}</button>
+  </form>
+</li>
+
+<style>
+  .tip {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 16px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+  }
+
+  .tip > :not(form) {
+    grid-column: 1;
+    margin: 0;
+  }
+
+  .site {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .url {
+    font-size: 14px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .note {
+    margin-top: 4px !important;
+    white-space: pre-line;
+  }
+
+  .from {
+    margin-top: 4px !important;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  form {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    align-self: start;
+    margin: 0;
+  }
+
+  button {
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  button.secondary {
+    background: none;
+    color: var(--accent);
+  }
+</style>

@@ -1,0 +1,16 @@
+---
+// The hosts' pages (plan §5.9): their tools are the Hosts category of the site's navigation
+// (src/lib/navigation.ts), which only hosts see. Every page checks that the member is a host itself, on the
+// server (CLAUDE.md, Admin security): this layout only gives them their title.
+import Base from './Base.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<Base title={`${title} · Host tools · AFiG: Amsterdam Film Group`} description="Tools for the hosts of AFiG: Amsterdam Film Group.">
+  <slot />
+</Base>

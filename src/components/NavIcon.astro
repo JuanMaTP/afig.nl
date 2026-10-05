@@ -1,0 +1,36 @@
+---
+// The small line icons beside the navigation's entries (src/lib/navigation.ts), drawn on a 16-unit grid with a
+// 1.5 stroke in the text's colour, so they follow the mode. Decorative: the entry's word is its name.
+import type { NavIconName } from '../lib/navigation';
+
+interface Props {
+  name: NavIconName | 'sign-out';
+}
+
+const { name } = Astro.props;
+const paths: Record<Props['name'], string> = {
+  calendar: 'M3.5 3h9a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-8A1.5 1.5 0 0 1 3.5 3ZM2 6.5h12M5.5 1.5v3M10.5 1.5v3',
+  info: 'M8 1.75a6.25 6.25 0 1 1 0 12.5a6.25 6.25 0 0 1 0-12.5ZM8 7.25v4M8 4.75v.01',
+  search: 'M7 2.25a4.75 4.75 0 1 1 0 9.5a4.75 4.75 0 0 1 0-9.5ZM10.5 10.5l3.75 3.75',
+  idea: 'M6 12.5h4M6.75 14.5h2.5M8 1.5a4.5 4.5 0 0 0-2.6 8.2c.4.3.6.7.6 1.2v.1h4v-.1c0-.5.2-.9.6-1.2A4.5 4.5 0 0 0 8 1.5Z',
+  overview: 'M3 2h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1ZM10 2h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1ZM3 9h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1ZM10 9h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z',
+  link: 'M6.5 9.5l3-3M7.25 4.25l.9-.9a3 3 0 0 1 4.25 4.25l-.9.9M8.75 11.75l-.9.9a3 3 0 0 1-4.25-4.25l.9-.9',
+  film: 'M4 2h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 12 14H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 2ZM5.5 2v12M10.5 2v12M2.5 5.5h3M2.5 8h3M2.5 10.5h3M10.5 5.5h3M10.5 8h3M10.5 10.5h3',
+  'sign-out': 'M6.5 2.5h-3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3M10.5 5l3 3-3 3M13.5 8h-7',
+};
+---
+
+<svg class="nav-icon" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+  <path d={paths[name]}></path>
+</svg>
+
+<style>
+  .nav-icon {
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>

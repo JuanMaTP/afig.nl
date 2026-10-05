@@ -1,0 +1,18 @@
+---
+// The small lock on a feature for members who sign in, in the header while signed out
+// (docs/brand/design-direction.md, Navigation and account). Screen readers hear "members who sign in".
+---
+
+<svg class="lock" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+  <rect x="3" y="7" width="10" height="7.5" rx="1.5"></rect>
+  <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path>
+</svg>
+<span class="visually-hidden"> (members who sign in)</span>
+
+<style>
+  .lock {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+  }
+</style>

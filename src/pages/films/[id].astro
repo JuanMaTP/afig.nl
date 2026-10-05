@@ -1,0 +1,334 @@
+---
+// One film's screenings in Amsterdam (plan §5.7). The film comes from TMDB; the screenings from the index,
+// matched to the film with confidence. Pages at a cinema with the same title that couldn't be matched are
+// listed apart, as "possibly this film". The version is shown only as the cinema states it.
+import { database, tmdb } from '../../cloudflare';
+import CoveredCinemas from '../../components/CoveredCinemas.astro';
+import ScreeningCalendar from '../../components/ScreeningCalendar.astro';
+import TmdbCredit from '../../components/TmdbCredit.astro';
+import Base from '../../layouts/Base.astro';
+import { formatDay, formatTime } from '../../lib/format';
+import { monthGrids } from '../../lib/month-grid';
+import { groupShowingsByDay, possibleShowings, type Showing, showingsOfFilm, startNote } from '../../lib/screenings';
+import { type TmdbMovie, TmdbError } from '../../lib/tmdb/client';
+
+export const prerender = false;
+
+// Members only while it is tried out (plan §8): without a session, sign in first and come back here.
+if (!(await Astro.locals.member())) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`);
+
+const id = /^\d{1,9}$/.test(Astro.params.id ?? '') ? Number(Astro.params.id) : null;
+if (id === null) return new Response(null, { status: 404 });
+
+const now = new Date();
+const db = database();
+let film: TmdbMovie | null = null;
+let unavailable = false;
+try {
+  const client = tmdb();
+  film = client ? await client.movie(id) : null;
+  unavailable = !client;
+} catch (error) {
+  if (!(error instanceof TmdbError)) throw error;
+  unavailable = true;
+}
+if (!film && !unavailable) return new Response(null, { status: 404 });
+
+const showings = await showingsOfFilm(db, id, now);
+const possible = film ? await possibleShowings(db, [film.title, film.originalTitle], now) : [];
+const view = Astro.url.searchParams.get('view') === 'month' ? 'month' : 'list';
+const days = view === 'list' ? groupShowingsByDay(showings, now) : [];
+const months = view === 'month' ? monthGrids(showings, now) : [];
+const listUrl = `/films/${id}`;
+const version = (s: Showing) =>
+  [s.language, s.subtitles && (s.subtitles === 'none' ? 'no subtitles' : `${s.subtitles} subtitles`)].filter(Boolean).join(' · ');
+const name = film ? `${film.title}${film.year ? ` (${film.year})` : ''}` : 'Film';
+---
+
+<Base title={`${name} in Amsterdam · AFiG: Amsterdam Film Group`} description={`Where and when ${name} plays in Amsterdam, and with which subtitles.`}>
+  <p class="back"><a href="/films">← Film finder</a></p>
+  {
+    film ? (
+      <div class="film">
+        {film.posterPath && <img src={`https://image.tmdb.org/t/p/w185${film.posterPath}`} alt="" width="92" height="138" />}
+        <div>
+          <h1>
+            {film.title}
+            {film.year && <span class="year"> ({film.year})</span>}
+          </h1>
+          {film.originalTitle !== film.title && <p class="meta">{film.originalTitle}</p>}
+          <p class="meta">
+            {[film.directors.length > 0 && `Directed by ${film.directors.join(', ')}`, film.runtime && `${film.runtime} min`].filter(Boolean).join(' · ')}
+          </p>
+          <p class="meta">
+            <a href={`/recommend/${id}`}>Recommend it to the group</a>
+          </p>
+        </div>
+      </div>
+    ) : (
+      <>
+        <h1>Film</h1>
+        <p class="note">The film's details aren't available right now.</p>
+      </>
+    )
+  }
+
+  {
+    showings.length === 0 ? (
+      <p class="none">Not playing at the cinemas we read.</p>
+    ) : (
+      <>
+        <div class="heading">
+          <h2 class="count">
+            {showings.length} {showings.length === 1 ? 'screening' : 'screenings'}
+          </h2>
+          <nav class="views" aria-label="Screenings view">
+            <a href={listUrl} aria-current={view === 'list' ? 'page' : undefined}>
+              List
+            </a>
+            <a href={`${listUrl}?view=month`} aria-current={view === 'month' ? 'page' : undefined}>
+              Calendar
+            </a>
+          </nav>
+        </div>
+        {view === 'month' ? (
+          <ScreeningCalendar months={months} listUrl={listUrl} />
+        ) : (
+          days.map((day) => (
+        <section class="day" id={`day-${day.key}`} aria-labelledby={`label-${day.key}`}>
+          <h3 id={`label-${day.key}`}>
+            {day.label}
+            {day.date && <span class="date"> · {day.date}</span>}
+            {day.showings.length > 1 && <span class="date"> · {day.showings.length} screenings</span>}
+          </h3>
+          <ul class="showings">
+            {day.showings.map((s) => (
+              <li>
+                <span class="time">
+                  <time datetime={s.startsAt}>{formatTime(s.startsAt)}</time>
+                </span>
+                <span class="where">
+                  <a href={s.sourceUrl} target="_blank" rel="noopener">
+                    {s.venueName}
+                  </a>
+                  {version(s) && <span class="language">{version(s)}</span>}
+                  {startNote(s.venueId) && <span class="start-note">{startNote(s.venueId)}</span>}
+                </span>
+                {s.ticketUrl && (
+                  <a class="button" href={s.ticketUrl} target="_blank" rel="noopener">
+                    Tickets<span class="visually-hidden"> at {s.venueName}, {formatDay(s.startsAt)} {formatTime(s.startsAt)} (opens in a new tab)</span>
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+          ))
+        )}
+      </>
+    )
+  }
+
+  {
+    possible.length > 0 && (
+      <section class="possible" aria-labelledby="possible">
+        <h2 id="possible">Possibly this film</h2>
+        <p class="note">Same title, but the cinema's page doesn't tell us enough to be sure. Check it before you go.</p>
+        <ul class="showings">
+          {possible.map((s) => (
+            <li>
+              <span class="time">
+                {formatDay(s.startsAt)}, <time datetime={s.startsAt}>{formatTime(s.startsAt)}</time>
+              </span>
+              <span class="where">
+                <a href={s.sourceUrl} target="_blank" rel="noopener">
+                  {s.billedTitle} at {s.venueName}
+                </a>
+                {version(s) && <span class="language">{version(s)}</span>}
+                {startNote(s.venueId) && <span class="start-note">{startNote(s.venueId)}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <CoveredCinemas />
+  <TmdbCredit />
+</Base>
+
+<style>
+  .back {
+    margin: 0 0 12px;
+    font-size: 14px;
+  }
+
+  .film {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .film img {
+    flex: none;
+    border-radius: 6px;
+    background: var(--still);
+  }
+
+  h1 {
+    margin-top: 0;
+  }
+
+  .year,
+  .meta,
+  .note {
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .meta {
+    margin: 4px 0 0;
+  }
+
+  .meta a {
+    color: var(--accent);
+  }
+
+  .none {
+    margin: 24px 0;
+    font-weight: 600;
+  }
+
+  .heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin: 24px 0 4px;
+  }
+
+  .count {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  /* As in the agenda's list. */
+  .views {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+  }
+
+  .views a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .views a[aria-current='page'] {
+    background: var(--pill);
+    color: var(--pill-text);
+    font-weight: 600;
+  }
+
+  /* Each day under a heading that stays in view while its screenings scroll, as in the agenda, and its
+     screenings together on one card, so where a day ends is plain. */
+  .day {
+    scroll-margin-top: var(--header-compact);
+  }
+
+  .day h3 {
+    position: sticky;
+    top: var(--header-compact);
+    z-index: 1;
+    margin: 0;
+    padding: 18px 0 10px;
+    background: var(--bg);
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .date {
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  .possible h2 {
+    margin: 32px 0 8px;
+    font-size: 18px;
+  }
+
+  .showings {
+    list-style: none;
+    margin: 0;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+  }
+
+  .showings li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 12px 0;
+  }
+
+  .showings li + li {
+    border-top: 1px solid var(--line);
+  }
+
+  .time {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .where {
+    flex: 1;
+    min-width: 12em;
+  }
+
+  /* What the time is, where it isn't the film's start (Melkweg). */
+  .start-note {
+    display: block;
+    margin-top: 2px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .language {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--pill);
+    color: var(--pill-text);
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+</style>

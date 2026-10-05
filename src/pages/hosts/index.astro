@@ -1,0 +1,84 @@
+---
+// The hosts' area (plan §5.9): what waits for them, and the way to each tool. Hosts only: a member whose
+// verified sign-in email is on the hosts' list (`HOST_EMAILS`); anyone else gets a 404.
+import { database } from '../../cloudflare';
+import Hosts from '../../layouts/Hosts.astro';
+import { hostCounts } from '../../lib/recommendations';
+
+export const prerender = false;
+
+const member = await Astro.locals.member();
+if (!member) return Astro.redirect(`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`);
+if (!member.host) return new Response(null, { status: 404 });
+
+const counts = await hostCounts(database(), new Date());
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+---
+
+<Hosts title="Overview">
+  <h1>Host tools</h1>
+  <p class="lead">What members send the hosts, and later more tools to organise the group. Only hosts see this area.</p>
+
+  <ul class="cards">
+    <li>
+      <a href="/hosts/tips">
+        <span class="name">Screening tips</span>
+        <span class="figure">{counts.openTips === 0 ? 'Nothing open' : plural(counts.openTips, 'open tip', 'open tips')}</span>
+        <span class="about">Screenings and venues members spotted, as links.</span>
+      </a>
+    </li>
+    <li>
+      <a href="/hosts/films">
+        <span class="name">Recommended films</span>
+        <span class="figure">
+          {plural(counts.recommended, 'film', 'films')} recommended{counts.newFilms > 0 && ` · ${counts.newFilms} new this week`}
+        </span>
+        <span class="about">What members want to see, the most recommended first, with who and why.</span>
+      </a>
+    </li>
+  </ul>
+</Hosts>
+
+<style>
+  .lead {
+    color: var(--muted);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin: 20px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .cards a {
+    display: grid;
+    gap: 4px;
+    height: 100%;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+    text-decoration: none;
+  }
+
+  .cards a:hover {
+    border-color: var(--accent);
+  }
+
+  .name {
+    font-family: var(--font-title);
+    font-size: 20px;
+  }
+
+  .figure {
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .about {
+    color: var(--muted);
+  }
+</style>

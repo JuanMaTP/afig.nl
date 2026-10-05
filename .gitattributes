@@ -1,0 +1,10 @@
+# Keep LF in the repository on both computers.
+* text=auto eol=lf
+# Test fixtures stay byte for byte as Meetup served them (the iCal feed uses CRLF).
+test/fixtures/** -text
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
+*.ico binary
+*.ttf binary
